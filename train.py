@@ -21,7 +21,7 @@ from sqlova.utils.utils_wikisql import *
 from sqlova.model.nl2sql.wikisql_models import *
 from sqlnet.dbengine import DBEngine
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def construct_hyper_param(parser):
@@ -116,6 +116,7 @@ def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
     bert_config.print_status()
 
     model_bert = BertModel(bert_config)
+    ipdb.set_trace()
     if no_pretraining:
         pass
     else:

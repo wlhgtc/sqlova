@@ -401,7 +401,7 @@ class BertModel(nn.Module):
         sequence_output = all_encoder_layers[-1]
         pooled_output = self.pooler(sequence_output)
         return all_encoder_layers, pooled_output
-
+    
 
 class BertForSequenceClassification(nn.Module):
     """BERT model for classification.
