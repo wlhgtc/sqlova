@@ -3,6 +3,7 @@
 
 # Wonseok Hwang
 # Sep30, 2018
+import ipdb
 import os, sys, argparse, re, json
 import pathlib
 from matplotlib.pylab import *
@@ -563,6 +564,7 @@ if __name__ == '__main__':
     path_save_for_evaluation = path_h / 'result'
 
     ## 3. Load data
+    ipdb.set_trace()
     train_data, train_table, dev_data, dev_table, train_loader, dev_loader = get_data(path_wikisql, args)
     # test_data, test_table = load_wikisql_data(path_wikisql, mode='test', toy_model=args.toy_model, toy_size=args.toy_size, no_hs_tok=True)
     # test_loader = torch.utils.data.DataLoader(

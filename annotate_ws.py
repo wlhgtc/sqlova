@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # docker run --name corenlp -d -p 9000:9000 vzhong/corenlp-server
 # Wonseok Hwang. Jan 6 2019, Comment added
+import ipdb
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 import os
 import records
@@ -155,8 +156,8 @@ def is_valid_example(e):
 
 if __name__ == '__main__':
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--din', default='/Users/wonseok/data/WikiSQL-1.1/data', help='data directory')
-    parser.add_argument('--dout', default='/Users/wonseok/data/wikisql_tok', help='output directory')
+    parser.add_argument('--din', default='D:\SQuAD\sqlova\data\wikisql\origin', help='data directory')
+    parser.add_argument('--dout', default='D:\SQuAD\sqlova\data\wikisql', help='output directory')
     parser.add_argument('--split', default='train,dev,test', help='comma=separated list of splits to process')
     args = parser.parse_args()
 
@@ -174,17 +175,17 @@ if __name__ == '__main__':
 
         print('annotating {}'.format(fsplit))
         with open(fsplit) as fs, open(ftable) as ft, open(fout, 'wt') as fo:
-            print('loading tables')
+            # print('loading tables')
 
             # ws: Construct table dict with table_id as a key.
             tables = {}
-            for line in tqdm(ft, total=count_lines(ftable)):
+            for line in tqdm(ft, total=count_lines(ftable),ncols = 60, desc = 'Loading Tables'):
                 d = json.loads(line)
                 tables[d['id']] = d
-            print('loading examples')
+            # print('loading examples')
             n_written = 0
             cnt = -1
-            for line in tqdm(fs, total=count_lines(fsplit)):
+            for line in tqdm(fs, total=count_lines(fsplit),ncols = 60, desc = 'Loading Examples'):
                 cnt += 1
                 d = json.loads(line)
                 # a = annotate_example(d, tables[d['table_id']])
