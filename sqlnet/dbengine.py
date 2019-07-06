@@ -5,19 +5,20 @@ import records
 import re
 from babel.numbers import parse_decimal, NumberFormatError
 
-
-schema_re = re.compile(r'\((.+)\)') # group (.......) dfdf (.... )group
-num_re = re.compile(r'[-+]?\d*\.\d+|\d+') # ? zero or one time appear of preceding character, * zero or several time appear of preceding character.
+schema_re = re.compile(r'\((.+)\)')  # group (.......) dfdf (.... )group
+num_re = re.compile(
+    r'[-+]?\d*\.\d+|\d+')  # ? zero or one time appear of preceding character, * zero or several time appear of preceding character.
 # Catch something like -34.34, .4543,
 # | is 'or'
 
 agg_ops = ['', 'MAX', 'MIN', 'COUNT', 'SUM', 'AVG']
 cond_ops = ['=', '>', '<', 'OP']
 
+
 class DBEngine:
 
     def __init__(self, fdb):
-        #fdb = 'data/test.db'
+        # fdb = 'data/test.db'
         self.db = records.Database('sqlite:///{}'.format(fdb))
 
     def execute_query(self, table_id, query, *args, **kwargs):
@@ -26,7 +27,8 @@ class DBEngine:
     def execute(self, table_id, select_index, aggregation_index, conditions, lower=True):
         if not table_id.startswith('table'):
             table_id = 'table_{}'.format(table_id.replace('-', '_'))
-        table_info = self.db.query('SELECT sql from sqlite_master WHERE tbl_name = :name', name=table_id).all()[0].sql.replace('\n','')
+        table_info = self.db.query('SELECT sql from sqlite_master WHERE tbl_name = :name', name=table_id).all()[
+            0].sql.replace('\n', '')
         schema_str = schema_re.findall(table_info)[0]
         schema = {}
         for tup in schema_str.split(', '):
@@ -50,7 +52,7 @@ class DBEngine:
 
                 except NumberFormatError as e:
                     try:
-                        val = float(num_re.findall(val)[0]) # need to understand and debug this part.
+                        val = float(num_re.findall(val)[0])  # need to understand and debug this part.
                     except:
                         # Although column is of number, selected one is not number. Do nothing in this case.
                         pass
@@ -60,15 +62,16 @@ class DBEngine:
         if where_clause:
             where_str = 'WHERE ' + ' AND '.join(where_clause)
         query = 'SELECT {} AS result FROM {} {}'.format(select, table_id, where_str)
-        #print query
+        # print query
         out = self.db.query(query, **where_map)
 
-
         return [o.result for o in out]
+
     def execute_return_query(self, table_id, select_index, aggregation_index, conditions, lower=True):
         if not table_id.startswith('table'):
             table_id = 'table_{}'.format(table_id.replace('-', '_'))
-        table_info = self.db.query('SELECT sql from sqlite_master WHERE tbl_name = :name', name=table_id).all()[0].sql.replace('\n','')
+        table_info = self.db.query('SELECT sql from sqlite_master WHERE tbl_name = :name', name=table_id).all()[
+            0].sql.replace('\n', '')
         schema_str = schema_re.findall(table_info)[0]
         schema = {}
         for tup in schema_str.split(', '):
@@ -98,13 +101,13 @@ class DBEngine:
         if where_clause:
             where_str = 'WHERE ' + ' AND '.join(where_clause)
         query = 'SELECT {} AS result FROM {} {}'.format(select, table_id, where_str)
-        #print query
+        # print query
         out = self.db.query(query, **where_map)
 
-
         return [o.result for o in out], query
+
     def show_table(self, table_id):
         if not table_id.startswith('table'):
             table_id = 'table_{}'.format(table_id.replace('-', '_'))
-        rows = self.db.query('select * from ' +table_id)
+        rows = self.db.query('select * from ' + table_id)
         print(rows.dataset)

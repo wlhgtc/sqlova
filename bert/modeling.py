@@ -26,6 +26,7 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
+
 def gelu(x):
     """Implementation of the gelu activation function.
         For information: OpenAI GPT's gelu is slightly different (and gives slightly different results):
@@ -37,18 +38,19 @@ def gelu(x):
 class BertConfig(object):
     """Configuration class to store the configuration of a `BertModel`.
     """
+
     def __init__(self,
-                vocab_size,
-                hidden_size=768,
-                num_hidden_layers=12,
-                num_attention_heads=12,
-                intermediate_size=3072,
-                hidden_act="gelu",
-                hidden_dropout_prob=0.1,
-                attention_probs_dropout_prob=0.1,
-                max_position_embeddings=512,
-                type_vocab_size=16,
-                initializer_range=0.02):
+                 vocab_size,
+                 hidden_size=768,
+                 num_hidden_layers=12,
+                 num_attention_heads=12,
+                 intermediate_size=3072,
+                 hidden_act="gelu",
+                 hidden_dropout_prob=0.1,
+                 attention_probs_dropout_prob=0.1,
+                 max_position_embeddings=512,
+                 type_vocab_size=16,
+                 initializer_range=0.02):
         """Constructs BertConfig.
 
         Args:
@@ -85,23 +87,22 @@ class BertConfig(object):
         self.type_vocab_size = type_vocab_size
         self.initializer_range = initializer_range
 
-
     def print_status(self):
         """
         Wonseok add this.
         """
 
-        print( f"vocab size: {self.vocab_size}")
-        print( f"hidden_size: {self.hidden_size}")
-        print( f"num_hidden_layer: {self.num_hidden_layers}")
-        print( f"num_attention_heads: {self.num_attention_heads}")
-        print( f"hidden_act: {self.hidden_act}")
-        print( f"intermediate_size: {self.intermediate_size}")
-        print( f"hidden_dropout_prob: {self.hidden_dropout_prob}")
-        print( f"attention_probs_dropout_prob: {self.attention_probs_dropout_prob}")
-        print( f"max_position_embeddings: {self.max_position_embeddings}")
-        print( f"type_vocab_size: {self.type_vocab_size}")
-        print( f"initializer_range: {self.initializer_range}")
+        print(f"vocab size: {self.vocab_size}")
+        print(f"hidden_size: {self.hidden_size}")
+        print(f"num_hidden_layer: {self.num_hidden_layers}")
+        print(f"num_attention_heads: {self.num_attention_heads}")
+        print(f"hidden_act: {self.hidden_act}")
+        print(f"intermediate_size: {self.intermediate_size}")
+        print(f"hidden_dropout_prob: {self.hidden_dropout_prob}")
+        print(f"attention_probs_dropout_prob: {self.attention_probs_dropout_prob}")
+        print(f"max_position_embeddings: {self.max_position_embeddings}")
+        print(f"type_vocab_size: {self.type_vocab_size}")
+        print(f"initializer_range: {self.initializer_range}")
 
     @classmethod
     def from_dict(cls, json_object):
@@ -142,12 +143,13 @@ class BERTLayerNorm(nn.Module):
         # normalize each vector (each token).
         # regularize x.
         # If x follows Gaussian distribution, it becomes standard Normal distribution (i.e., mu=0, std=1).
-        u = x.mean(-1, keepdim=True) # keepdim = keeprank of tensor.
-        s = (x - u).pow(2).mean(-1, keepdim=True) # variance
-        x = (x - u) / torch.sqrt(s + self.variance_epsilon) # standard
+        u = x.mean(-1, keepdim=True)  # keepdim = keeprank of tensor.
+        s = (x - u).pow(2).mean(-1, keepdim=True)  # variance
+        x = (x - u) / torch.sqrt(s + self.variance_epsilon)  # standard
 
         # Gamma & Beta is trainable parameters.
         return self.gamma * x + self.beta
+
 
 class BERTEmbeddings(nn.Module):
     def __init__(self, config):
@@ -203,7 +205,8 @@ class BERTSelfAttention(nn.Module):
         """
         # Maybe: x = [B, seq_len, all_head_size=hidden_size ]
         # [B, seq_len] + [num_attention_heads, attention_head_size] ???
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size) # it is append (for torch.Size tensor, + acts as an concat. operation)
+        new_x_shape = x.size()[:-1] + (self.num_attention_heads,
+                                       self.attention_head_size)  # it is append (for torch.Size tensor, + acts as an concat. operation)
 
         # [B, seq_len, all_head_size=hidden_size ] -> [B, seq_len, num_attention_heads, attention_head_size]
         x = x.view(*new_x_shape)
@@ -226,7 +229,7 @@ class BERTSelfAttention(nn.Module):
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
-        attention_scores = attention_scores + attention_mask # sort of multiplication in soft-max step. It is ~ -10000
+        attention_scores = attention_scores + attention_mask  # sort of multiplication in soft-max step. It is ~ -10000
 
         # Normalize the attention scores to probabilities.
         attention_probs = nn.Softmax(dim=-1)(attention_scores)
@@ -318,7 +321,7 @@ class BERTEncoder(nn.Module):
     def __init__(self, config):
         super(BERTEncoder, self).__init__()
         layer = BERTLayer(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])    
+        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
 
     def forward(self, hidden_states, attention_mask):
         all_encoder_layers = []
@@ -360,6 +363,7 @@ class BertModel(nn.Module):
     all_encoder_layers, pooled_output = model(input_ids, token_type_ids, input_mask)
     ```
     """
+
     def __init__(self, config: BertConfig):
         """Constructor for BertModel.
 
@@ -398,6 +402,7 @@ class BertModel(nn.Module):
         pooled_output = self.pooler(sequence_output)
         return all_encoder_layers, pooled_output
 
+
 class BertForSequenceClassification(nn.Module):
     """BERT model for classification.
     This module is composed of the BERT model with a linear layer on top of
@@ -419,6 +424,7 @@ class BertForSequenceClassification(nn.Module):
     logits = model(input_ids, token_type_ids, input_mask)
     ```
     """
+
     def __init__(self, config, num_labels):
         super(BertForSequenceClassification, self).__init__()
         self.bert = BertModel(config)
@@ -435,6 +441,7 @@ class BertForSequenceClassification(nn.Module):
                 module.gamma.data.normal_(mean=0.0, std=config.initializer_range)
             if isinstance(module, nn.Linear):
                 module.bias.data.zero_()
+
         self.apply(init_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask, labels=None):
@@ -448,6 +455,7 @@ class BertForSequenceClassification(nn.Module):
             return loss, logits
         else:
             return logits
+
 
 class BertForQuestionAnswering(nn.Module):
     """BERT model for Question Answering (span extraction).
@@ -468,6 +476,7 @@ class BertForQuestionAnswering(nn.Module):
     start_logits, end_logits = model(input_ids, token_type_ids, input_mask)
     ```
     """
+
     def __init__(self, config):
         super(BertForQuestionAnswering, self).__init__()
         self.bert = BertModel(config)
@@ -485,6 +494,7 @@ class BertForQuestionAnswering(nn.Module):
                 module.gamma.data.normal_(mean=0.0, std=config.initializer_range)
             if isinstance(module, nn.Linear):
                 module.bias.data.zero_()
+
         self.apply(init_weights)
 
     def forward(self, input_ids, token_type_ids, attention_mask, start_positions=None, end_positions=None):
@@ -516,38 +526,39 @@ class BertForQuestionAnswering(nn.Module):
 
 
 class BertNoAnswer(nn.Module):
-    def __init__(self,hidden_size,context_length=317):
-        super(BertNoAnswer,self).__init__()
+    def __init__(self, hidden_size, context_length=317):
+        super(BertNoAnswer, self).__init__()
         self.context_length = context_length
-        self.W_no = nn.Linear(hidden_size,1)
-        self.no_answer = nn.Sequential(nn.Linear(hidden_size*3,hidden_size),
+        self.W_no = nn.Linear(hidden_size, 1)
+        self.no_answer = nn.Sequential(nn.Linear(hidden_size * 3, hidden_size),
                                        nn.ReLU(),
-                                       nn.Linear(hidden_size,2))
-        
-    def forward(self,sequence_output,start_logit,end_logit,mask=None):
+                                       nn.Linear(hidden_size, 2))
+
+    def forward(self, sequence_output, start_logit, end_logit, mask=None):
         if mask is None:
-            nbatch,length,_ = sequence_output.size()
-            mask = torch.ones(nbatch,length)
+            nbatch, length, _ = sequence_output.size()
+            mask = torch.ones(nbatch, length)
         mask = mask.float()
-        mask = mask.unsqueeze(-1)[:,1:self.context_length+1]
+        mask = mask.unsqueeze(-1)[:, 1:self.context_length + 1]
         mask = (1.0 - mask) * -10000.0
-        sequence_output = sequence_output[:,1:self.context_length+1]
-        start_logit = start_logit[:,1:self.context_length+1] + mask
-        end_logit = end_logit[:,1:self.context_length+1] + mask
-        
+        sequence_output = sequence_output[:, 1:self.context_length + 1]
+        start_logit = start_logit[:, 1:self.context_length + 1] + mask
+        end_logit = end_logit[:, 1:self.context_length + 1] + mask
+
         # No-answer option
-        pa_1 = nn.functional.softmax(start_logit.transpose(1,2),-1) # B,1,T
-        v1 = torch.bmm(pa_1,sequence_output).squeeze(1) # B,H
-        pa_2 = nn.functional.softmax(end_logit.transpose(1,2),-1) # B,1,T
-        v2 = torch.bmm(pa_2,sequence_output).squeeze(1) # B,H
+        pa_1 = nn.functional.softmax(start_logit.transpose(1, 2), -1)  # B,1,T
+        v1 = torch.bmm(pa_1, sequence_output).squeeze(1)  # B,H
+        pa_2 = nn.functional.softmax(end_logit.transpose(1, 2), -1)  # B,1,T
+        v2 = torch.bmm(pa_2, sequence_output).squeeze(1)  # B,H
         pa_3 = self.W_no(sequence_output) + mask
-        pa_3 = nn.functional.softmax(pa_3.transpose(1,2),-1) # B,1,T
-        v3 = torch.bmm(pa_3,sequence_output).squeeze(1) # B,H
-        
-        bias = self.no_answer(torch.cat([v1,v2,v3],-1)) # B,1
-        
+        pa_3 = nn.functional.softmax(pa_3.transpose(1, 2), -1)  # B,1,T
+        v3 = torch.bmm(pa_3, sequence_output).squeeze(1)  # B,H
+
+        bias = self.no_answer(torch.cat([v1, v2, v3], -1))  # B,1
+
         return bias
-        
+
+
 class BertForSQuAD2(nn.Module):
     def __init__(self, config, context_length=317):
         super(BertForSQuAD2, self).__init__()
@@ -569,20 +580,21 @@ class BertForSQuAD2(nn.Module):
                 module.gamma.data.normal_(mean=0.0, std=config.initializer_range)
             if isinstance(module, nn.Linear):
                 module.bias.data.zero_()
+
         self.apply(init_weights)
-        
+
     def forward(self, input_ids, token_type_ids, attention_mask, start_positions=None, end_positions=None, labels=None):
         all_encoder_layers, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
         sequence_output = all_encoder_layers[-1]
         span_logits = self.qa_outputs(sequence_output)
         start_logits, end_logits = span_logits.split(1, dim=-1)
-        na_logits = self.na_head(sequence_output,start_logits,end_logits,attention_mask)
+        na_logits = self.na_head(sequence_output, start_logits, end_logits, attention_mask)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
-        
+
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-        logits = (na_logits+logits)/2 # mean
+        logits = (na_logits + logits) / 2  # mean
 
         if start_positions is not None and end_positions is not None:
             # If we are on multi-GPU, split add a dimension
@@ -603,7 +615,7 @@ class BertForSQuAD2(nn.Module):
             total_loss = span_loss + unanswerable_loss
             return total_loss
         else:
-            probs = nn.functional.softmax(logits,-1)
+            probs = nn.functional.softmax(logits, -1)
             _, probs = probs.split(1, dim=-1)
             return start_logits, end_logits, probs
 

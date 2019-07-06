@@ -4,7 +4,7 @@
 # Wonseok Hwang
 # Sep30, 2018
 import os, sys, argparse, re, json
-
+import pathlib
 from matplotlib.pylab import *
 import torch.nn as nn
 import torch
@@ -21,6 +21,7 @@ from sqlova.model.nl2sql.wikisql_models import *
 from sqlnet.dbengine import DBEngine
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def construct_hyper_param(parser):
     parser.add_argument('--tepoch', default=200, type=int)
@@ -41,7 +42,7 @@ def construct_hyper_param(parser):
                         default='vocab.txt', type=str,
                         help="The vocabulary file that the BERT model was trained on.")
     parser.add_argument("--max_seq_length",
-                        default=222, type=int, # Set based on maximum length of input tokens.
+                        default=222, type=int,  # Set based on maximum length of input tokens.
                         help="The maximum total input sequence length after WordPiece tokenization. Sequences "
                              "longer than this will be truncated, and sequences shorter than this will be padded.")
     parser.add_argument("--num_target_layers",
@@ -96,7 +97,7 @@ def construct_hyper_param(parser):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-    #args.toy_model = not torch.cuda.is_available()
+    # args.toy_model = not torch.cuda.is_available()
     args.toy_model = False
     args.toy_size = 12
 
@@ -104,13 +105,9 @@ def construct_hyper_param(parser):
 
 
 def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
-
-
     bert_config_file = os.path.join(BERT_PT_PATH, f'bert_config_{bert_type}.json')
     vocab_file = os.path.join(BERT_PT_PATH, f'vocab_{bert_type}.txt')
     init_checkpoint = os.path.join(BERT_PT_PATH, f'pytorch_model_{bert_type}.bin')
-
-
 
     bert_config = BertConfig.from_json_file(bert_config_file)
     tokenizer = tokenization.FullTokenizer(
@@ -127,6 +124,7 @@ def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
 
     return model_bert, tokenizer, bert_config
 
+
 def get_opt(model, model_bert, fine_tune):
     if fine_tune:
         opt = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
@@ -140,6 +138,7 @@ def get_opt(model, model_bert, fine_tune):
         opt_bert = None
 
     return opt, opt_bert
+
 
 def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_model=None):
     # some constants
@@ -188,8 +187,10 @@ def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_mod
 
     return model, model_bert, tokenizer, bert_config
 
+
 def get_data(path_wikisql, args):
-    train_data, train_table, dev_data, dev_table, _, _ = load_wikisql(path_wikisql, args.toy_model, args.toy_size, no_w2i=True, no_hs_tok=True)
+    train_data, train_table, dev_data, dev_table, _, _ = load_wikisql(path_wikisql, args.toy_model, args.toy_size,
+                                                                      no_w2i=True, no_hs_tok=True)
     train_loader, dev_loader = get_loader_wikisql(train_data, dev_data, args.bS, shuffle_train=True)
 
     return train_data, train_table, dev_data, dev_table, train_loader, dev_loader
@@ -202,16 +203,16 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
     model_bert.train()
 
     ave_loss = 0
-    cnt = 0 # count the # of examples
-    cnt_sc = 0 # count the # of correct predictions of select column
-    cnt_sa = 0 # of selectd aggregation
-    cnt_wn = 0 # of where number
-    cnt_wc = 0 # of where column
-    cnt_wo = 0 # of where operator
-    cnt_wv = 0 # of where-value
-    cnt_wvi = 0 # of where-value index (on question tokens)
+    cnt = 0  # count the # of examples
+    cnt_sc = 0  # count the # of correct predictions of select column
+    cnt_sa = 0  # of selectd aggregation
+    cnt_wn = 0  # of where number
+    cnt_wc = 0  # of where column
+    cnt_wo = 0  # of where operator
+    cnt_wv = 0  # of where-value
+    cnt_wvi = 0  # of where-value index (on question tokens)
     cnt_lx = 0  # of logical form acc
-    cnt_x = 0   # of execution acc
+    cnt_x = 0  # of execution acc
 
     # Engine for SQL querying.
     engine = DBEngine(os.path.join(path_db, f"{dset_name}.db"))
@@ -263,7 +264,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         loss = Loss_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi)
 
         # Calculate gradient
-        if iB % accumulate_gradients == 0: # mode
+        if iB % accumulate_gradients == 0:  # mode
             # at start, perform zero_grad
             opt.zero_grad()
             if opt_bert:
@@ -273,7 +274,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
                 opt.step()
                 if opt_bert:
                     opt_bert.step()
-        elif iB % accumulate_gradients == (accumulate_gradients-1):
+        elif iB % accumulate_gradients == (accumulate_gradients - 1):
             # at the final, take step with accumulated graident
             loss.backward()
             opt.step()
@@ -293,14 +294,13 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         pr_wc_sorted = sort_pr_wc(pr_wc, g_wc)
         pr_sql_i = generate_sql_i(pr_sc, pr_sa, pr_wn, pr_wc_sorted, pr_wo, pr_wv_str, nlu)
 
-
         # Cacluate accuracy
         cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, \
         cnt_wc1_list, cnt_wo1_list, \
         cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi,
-                                                                   pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
-                                                                   sql_i, pr_sql_i,
-                                                                   mode='train')
+                                                      pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
+                                                      sql_i, pr_sql_i,
+                                                      mode='train')
 
         cnt_lx1_list = get_cnt_lx_list(cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list,
                                        cnt_wo1_list, cnt_wv1_list)
@@ -339,6 +339,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
     aux_out = 1
 
     return acc, aux_out
+
 
 def report_detail(hds, nlu,
                   g_sc, g_sa, g_wn, g_wc, g_wo, g_wv, g_wv_str, g_sql_q, g_ans,
@@ -380,10 +381,11 @@ def report_detail(hds, nlu,
 
     print(cnt_list)
 
-    print(f'acc_lx = {cnt_lx/cnt:.3f}, acc_x = {cnt_x/cnt:.3f}\n',
-          f'acc_sc = {cnt_sc/cnt:.3f}, acc_sa = {cnt_sa/cnt:.3f}, acc_wn = {cnt_wn/cnt:.3f}\n',
-          f'acc_wc = {cnt_wc/cnt:.3f}, acc_wo = {cnt_wo/cnt:.3f}, acc_wv = {cnt_wv/cnt:.3f}')
+    print(f'acc_lx = {cnt_lx / cnt:.3f}, acc_x = {cnt_x / cnt:.3f}\n',
+          f'acc_sc = {cnt_sc / cnt:.3f}, acc_sa = {cnt_sa / cnt:.3f}, acc_wn = {cnt_wn / cnt:.3f}\n',
+          f'acc_wc = {cnt_wc / cnt:.3f}, acc_wo = {cnt_wo / cnt:.3f}, acc_wv = {cnt_wv / cnt:.3f}')
     print(f'===============================')
+
 
 def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
          max_seq_length,
@@ -464,16 +466,13 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             pr_wc, pr_wo, pr_wv, pr_sql_i = sort_and_generate_pr_w(pr_sql_i)
 
             # Follosing variables are just for the consistency with no-EG case.
-            pr_wvi = None # not used
-            pr_wv_str=None
-            pr_wv_str_wp=None
+            pr_wvi = None  # not used
+            pr_wv_str = None
+            pr_wv_str_wp = None
             loss = torch.tensor([0])
-
-
 
         g_sql_q = generate_sql_q(sql_i, tb)
         pr_sql_q = generate_sql_q(pr_sql_i, tb)
-
 
         # Saving for the official evaluation later.
         for b, pr_sql_i1 in enumerate(pr_sql_i):
@@ -485,10 +484,10 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
 
         cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, \
         cnt_wc1_list, cnt_wo1_list, \
-        cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa,g_wn, g_wc,g_wo, g_wvi,
-                                                                   pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
-                                                                   sql_i, pr_sql_i,
-                                                                   mode='test')
+        cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi,
+                                                      pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
+                                                      sql_i, pr_sql_i,
+                                                      mode='test')
 
         cnt_lx1_list = get_cnt_lx_list(cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list,
                                        cnt_wo1_list, cnt_wv1_list)
@@ -549,6 +548,7 @@ def print_result(epoch, acc, dname):
         acc_wc: {acc_wc:.3f}, acc_wo: {acc_wo:.3f}, acc_wvi: {acc_wvi:.3f}, acc_wv: {acc_wv:.3f}, acc_lx: {acc_lx:.3f}, acc_x: {acc_x:.3f}"
     )
 
+
 if __name__ == '__main__':
 
     ## 1. Hyper parameters
@@ -556,11 +556,11 @@ if __name__ == '__main__':
     args = construct_hyper_param(parser)
 
     ## 2. Paths
-    path_h = '/home/wonseok'
-    path_wikisql = os.path.join(path_h, 'data', 'wikisql_tok')
-    BERT_PT_PATH = path_wikisql
+    path_h = pathlib.Path('D:\SQuAD\sqlova\data')
+    path_wikisql = path_h / 'wikisql'
+    BERT_PT_PATH = path_h / 'bert'
 
-    path_save_for_evaluation = './'
+    path_save_for_evaluation = path_h / 'result'
 
     ## 3. Load data
     train_data, train_table, dev_data, dev_table, train_loader, dev_loader = get_data(path_wikisql, args)
@@ -607,26 +607,23 @@ if __name__ == '__main__':
         # check DEV
         with torch.no_grad():
             acc_dev, results_dev, cnt_list = test(dev_loader,
-                                                dev_table,
-                                                model,
-                                                model_bert,
-                                                bert_config,
-                                                tokenizer,
-                                                args.max_seq_length,
-                                                args.num_target_layers,
-                                                detail=False,
-                                                path_db=path_wikisql,
-                                                st_pos=0,
-                                                dset_name='dev', EG=args.EG)
-
+                                                  dev_table,
+                                                  model,
+                                                  model_bert,
+                                                  bert_config,
+                                                  tokenizer,
+                                                  args.max_seq_length,
+                                                  args.num_target_layers,
+                                                  detail=False,
+                                                  path_db=path_wikisql,
+                                                  st_pos=0,
+                                                  dset_name='dev', EG=args.EG)
 
         print_result(epoch, acc_train, 'train')
         print_result(epoch, acc_dev, 'dev')
 
         # save results for the official evaluation
         save_for_evaluation(path_save_for_evaluation, results_dev, 'dev')
-
-
 
         # save best model
         # Based on Dev Set logical accuracy lx
@@ -636,7 +633,7 @@ if __name__ == '__main__':
             epoch_best = epoch
             # save best model
             state = {'model': model.state_dict()}
-            torch.save(state, os.path.join('.', 'model_best.pt') )
+            torch.save(state, os.path.join('.', 'model_best.pt'))
 
             state = {'model_bert': model_bert.state_dict()}
             torch.save(state, os.path.join('.', 'model_bert_best.pt'))

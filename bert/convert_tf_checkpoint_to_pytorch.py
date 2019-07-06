@@ -24,7 +24,7 @@ import tensorflow as tf
 import torch
 import numpy as np
 
-from modeling import BertConfig, BertModel
+from bert.modeling import BertConfig, BertModel
 
 parser = argparse.ArgumentParser()
 
@@ -48,7 +48,7 @@ parser.add_argument("--pytorch_dump_path",
 
 args = parser.parse_args()
 
-def convert():
+def convert(args):
     # Initialise PyTorch model
     config = BertConfig.from_json_file(args.bert_config_file)
     model = BertModel(config)
@@ -102,4 +102,4 @@ def convert():
     torch.save(model.state_dict(), args.pytorch_dump_path)
 
 if __name__ == "__main__":
-    convert()
+    convert(args)

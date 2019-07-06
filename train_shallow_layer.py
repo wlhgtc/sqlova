@@ -44,7 +44,7 @@ def construct_hyper_param(parser):
                         default='vocab.txt', type=str,
                         help="The vocabulary file that the BERT model was trained on.")
     parser.add_argument("--max_seq_length",
-                        default=222, type=int, # Set based on maximum length of input tokens.
+                        default=222, type=int,  # Set based on maximum length of input tokens.
                         help="The maximum total input sequence length after WordPiece tokenization. Sequences "
                              "longer than this will be truncated, and sequences shorter than this will be padded.")
     parser.add_argument("--num_target_layers",
@@ -67,7 +67,6 @@ def construct_hyper_param(parser):
     parser.add_argument('--lr', default=1e-5, type=float, help="Learning rate.")
     parser.add_argument("--hS", default=100, type=int, help="The dimension of hidden vector in the seq-to-SQL module.")
 
-
     # 1.4 Execution-guided decoding beam-size. It is used only in test.py
     parser.add_argument('--EG',
                         default=False,
@@ -77,7 +76,6 @@ def construct_hyper_param(parser):
                         type=int,
                         default=4,
                         help="The size of beam for smart decoding")
-
 
     # 1.5 Arguments only for test.py
     parser.add_argument('--sn', default=42, type=int, help="The targetting session number.")
@@ -111,7 +109,6 @@ def construct_hyper_param(parser):
         assert args.num_target_layers == 1
         assert args.fine_tune == True
 
-
     # Seeds for random number generation.
     seed(args.seed)
     python_random.seed(args.seed)
@@ -124,13 +121,9 @@ def construct_hyper_param(parser):
 
 
 def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
-
-
     bert_config_file = os.path.join(BERT_PT_PATH, f'bert_config_{bert_type}.json')
     vocab_file = os.path.join(BERT_PT_PATH, f'vocab_{bert_type}.txt')
     init_checkpoint = os.path.join(BERT_PT_PATH, f'pytorch_model_{bert_type}.bin')
-
-
 
     bert_config = BertConfig.from_json_file(bert_config_file)
     tokenizer = tokenization.FullTokenizer(
@@ -147,14 +140,15 @@ def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
 
     return model_bert, tokenizer, bert_config
 
+
 def get_opt(model, model_bert, model_type):
     if model_type == 'FT_Scalar_1':
         # Model itself does not have trainable parameters. Thus,
         opt_bert = torch.optim.Adam(list(filter(lambda p: p.requires_grad, model.parameters())) \
-                               # + list(model_bert.parameters()),
-                               + list(filter(lambda p: p.requires_grad, model_bert.parameters())),
-                               lr=args.lr_bert, weight_decay=0)
-        opt = opt_bert # for consistency in interface
+                                    # + list(model_bert.parameters()),
+                                    + list(filter(lambda p: p.requires_grad, model_bert.parameters())),
+                                    lr=args.lr_bert, weight_decay=0)
+        opt = opt_bert  # for consistency in interface
     else:
         raise NotImplementedError
         # opt = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
@@ -164,6 +158,7 @@ def get_opt(model, model_bert, model_type):
         #                             lr=args.lr_bert, weight_decay=0)
 
     return opt, opt_bert
+
 
 def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_model=None):
     # some constants
@@ -212,6 +207,7 @@ def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_mod
 
     return model, model_bert, tokenizer, bert_config
 
+
 def get_data(path_wikisql, args):
     train_data, train_table, dev_data, dev_table, _, _ = load_wikisql(path_wikisql, args.toy_model, args.toy_size,
                                                                       no_w2i=True, no_hs_tok=True,
@@ -228,16 +224,16 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
     model_bert.train()
 
     ave_loss = 0
-    cnt = 0 # count the # of examples
-    cnt_sc = 0 # count the # of correct predictions of select column
-    cnt_sa = 0 # of selectd aggregation
-    cnt_wn = 0 # of where number
-    cnt_wc = 0 # of where column
-    cnt_wo = 0 # of where operator
-    cnt_wv = 0 # of where-value
-    cnt_wvi = 0 # of where-value index (on question tokens)
+    cnt = 0  # count the # of examples
+    cnt_sc = 0  # count the # of correct predictions of select column
+    cnt_sa = 0  # of selectd aggregation
+    cnt_wn = 0  # of where number
+    cnt_wc = 0  # of where column
+    cnt_wo = 0  # of where operator
+    cnt_wv = 0  # of where-value
+    cnt_wvi = 0  # of where-value index (on question tokens)
     cnt_lx = 0  # of logical form acc
-    cnt_x = 0   # of execution acc
+    cnt_x = 0  # of execution acc
 
     # Engine for SQL querying.
     engine = DBEngine(os.path.join(path_db, f"{dset_name}.db"))
@@ -252,7 +248,6 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         g_sc, g_sa, g_wn, g_wc, g_wo, g_wv = get_g(sql_i)
         # get ground truth where-value index under CoreNLP tokenization scheme. It's done already on trainset.
         g_wvi_corenlp = get_g_wvi_corenlp(t)
-
 
         all_encoder_layer, pooled_output, tokens, i_nlu, i_hds, \
         l_n, l_hpu, l_hs, \
@@ -286,7 +281,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         loss = Loss_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi)
 
         # Calculate gradient
-        if iB % accumulate_gradients == 0: # mode
+        if iB % accumulate_gradients == 0:  # mode
             # at start, perform zero_grad
             opt.zero_grad()
             if opt_bert:
@@ -296,7 +291,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
                 opt.step()
                 if opt_bert:
                     opt_bert.step()
-        elif iB % accumulate_gradients == (accumulate_gradients-1):
+        elif iB % accumulate_gradients == (accumulate_gradients - 1):
             # at the final, take step with accumulated graident
             loss.backward()
             opt.step()
@@ -324,14 +319,13 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         pr_wv_str, pr_wv_str_wp = convert_pr_wvi_to_string(pr_wvi, nlu_t, nlu_tt, tt_to_t_idx, nlu)
         pr_sql_i = generate_sql_i(pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wv_str, nlu)
 
-
         # Cacluate accuracy
         cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, \
         cnt_wc1_list, cnt_wo1_list, \
         cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi,
-                                                                   pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
-                                                                   sql_i, pr_sql_i,
-                                                                   mode='train')
+                                                      pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
+                                                      sql_i, pr_sql_i,
+                                                      mode='train')
 
         cnt_lx1_list = get_cnt_lx_list(cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list,
                                        cnt_wo1_list, cnt_wv1_list)
@@ -374,6 +368,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
 
     return acc, aux_out
 
+
 def report_detail(hds, nlu,
                   g_sc, g_sa, g_wn, g_wc, g_wo, g_wv, g_wv_str, g_sql_q, g_ans,
                   pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wv_str, pr_sql_q, pr_ans,
@@ -414,10 +409,11 @@ def report_detail(hds, nlu,
 
     print(cnt_list)
 
-    print(f'acc_lx = {cnt_lx/cnt:.3f}, acc_x = {cnt_x/cnt:.3f}\n',
-          f'acc_sc = {cnt_sc/cnt:.3f}, acc_sa = {cnt_sa/cnt:.3f}, acc_wn = {cnt_wn/cnt:.3f}\n',
-          f'acc_wc = {cnt_wc/cnt:.3f}, acc_wo = {cnt_wo/cnt:.3f}, acc_wv = {cnt_wv/cnt:.3f}')
+    print(f'acc_lx = {cnt_lx / cnt:.3f}, acc_x = {cnt_x / cnt:.3f}\n',
+          f'acc_sc = {cnt_sc / cnt:.3f}, acc_sa = {cnt_sa / cnt:.3f}, acc_wn = {cnt_wn / cnt:.3f}\n',
+          f'acc_wc = {cnt_wc / cnt:.3f}, acc_wo = {cnt_wo / cnt:.3f}, acc_wv = {cnt_wv / cnt:.3f}')
     print(f'===============================')
+
 
 def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
          max_seq_length,
@@ -439,8 +435,8 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
     cnt_x = 0
 
     cnt_list = []
-    p_list = [] # List of prediction probabilities.
-    data_list = [] # Miscellanerous data. Save it for later convenience of analysis.
+    p_list = []  # List of prediction probabilities.
+    data_list = []  # Miscellanerous data. Save it for later convenience of analysis.
 
     engine = DBEngine(os.path.join(path_db, f"{dset_name}.db"))
     results = []
@@ -493,7 +489,7 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             loss = Loss_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi)
 
             # prediction
-            pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi = pred_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv,)
+            pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi = pred_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, )
             pr_wv_str, pr_wv_str_wp = convert_pr_wvi_to_string(pr_wvi, nlu_t, nlu_tt, tt_to_t_idx, nlu)
             # g_sql_i = generate_sql_i(g_sc, g_sa, g_wn, g_wc, g_wo, g_wv_str, nlu)
             pr_sql_i = generate_sql_i(pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wv_str, nlu)
@@ -507,11 +503,10 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             # Execution guided decoding
             pr_sc_best, pr_sa_best, pr_wn_based_on_prob, pr_wvi_best, \
             pr_sql_i, p_tot, p_select, p_where, p_sc_best, p_sa_best, \
-            p_wn_best, p_wc_best, p_wo_best, p_wvi_best\
+            p_wn_best, p_wc_best, p_wo_best, p_wvi_best \
                 = model.forward_EG(wemb_n, l_n, wemb_h, l_hs, cls_vec, engine, tb,
-                   nlu_t, nlu_tt, tt_to_t_idx, nlu,
-                   beam_size=beam_size)
-
+                                   nlu_t, nlu_tt, tt_to_t_idx, nlu,
+                                   beam_size=beam_size)
 
             pr_sc = pr_sc_best
             pr_sa = pr_sa_best
@@ -526,10 +521,10 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             p_wc, p_wo, p_wvi = sort_and_generate_pr_w(pr_sql_i, pr_wvi_best, p_wc_best, p_wo_best, p_wvi_best)
 
             # Follosing variables are just for the consistency with no-EG case.
-            pr_wv_str_wp=None
+            pr_wv_str_wp = None
             loss = torch.tensor([0])
 
-        p_list_batch = [p_tot, p_select, p_where, p_sc, p_sa, p_wn, p_wc, p_wo, p_wvi ]
+        p_list_batch = [p_tot, p_select, p_where, p_sc, p_sa, p_wn, p_wc, p_wo, p_wvi]
         p_list.append(p_list_batch)
 
         g_sql_q = generate_sql_q(sql_i, tb)
@@ -545,10 +540,10 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
 
         cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, \
         cnt_wc1_list, cnt_wo1_list, \
-        cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa,g_wn, g_wc,g_wo, g_wvi,
-                                                                   pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
-                                                                   sql_i, pr_sql_i,
-                                                                   mode='test')
+        cnt_wvi1_list, cnt_wv1_list = get_cnt_sw_list(g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi,
+                                                      pr_sc, pr_sa, pr_wn, pr_wc, pr_wo, pr_wvi,
+                                                      sql_i, pr_sql_i,
+                                                      mode='test')
 
         cnt_lx1_list = get_cnt_lx_list(cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list,
                                        cnt_wo1_list, cnt_wv1_list)
@@ -579,8 +574,9 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
         cnt_x += sum(cnt_x1_list)
 
         current_cnt = [cnt_tot, cnt, cnt_sc, cnt_sa, cnt_wn, cnt_wc, cnt_wo, cnt_wv, cnt_wvi, cnt_lx, cnt_x]
-        cnt_list_batch = [cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list, cnt_wo1_list, cnt_wv1_list, cnt_lx1_list,
-                     cnt_x1_list]
+        cnt_list_batch = [cnt_sc1_list, cnt_sa1_list, cnt_wn1_list, cnt_wc1_list, cnt_wo1_list, cnt_wv1_list,
+                          cnt_lx1_list,
+                          cnt_x1_list]
         cnt_list.append(cnt_list_batch)
         # report
         if detail:
@@ -619,6 +615,7 @@ def print_result(epoch, acc, dname):
         f" Epoch: {epoch}, ave loss: {ave_loss}, acc_sc: {acc_sc:.3f}, acc_sa: {acc_sa:.3f}, acc_wn: {acc_wn:.3f}, \
         acc_wc: {acc_wc:.3f}, acc_wo: {acc_wo:.3f}, acc_wvi: {acc_wvi:.3f}, acc_wv: {acc_wv:.3f}, acc_lx: {acc_lx:.3f}, acc_x: {acc_x:.3f}"
     )
+
 
 if __name__ == '__main__':
 
@@ -669,21 +666,20 @@ if __name__ == '__main__':
         # check DEV
         with torch.no_grad():
             acc_dev, results_dev, cnt_list_dev, p_list_dev, data_list_dev = test(dev_loader,
-                                                dev_table,
-                                                model,
-                                                model_bert,
-                                                bert_config,
-                                                tokenizer,
-                                                args.max_seq_length,
-                                                args.num_target_layers,
-                                                detail=False,
-                                                path_db=path_wikisql,
-                                                st_pos=0,
-                                                dset_name='dev', EG=args.EG,
-                                                col_pool_type=args.col_pool_type,
-                                                beam_size=args.beam_size,
-                                                aug=args.aug)
-
+                                                                                 dev_table,
+                                                                                 model,
+                                                                                 model_bert,
+                                                                                 bert_config,
+                                                                                 tokenizer,
+                                                                                 args.max_seq_length,
+                                                                                 args.num_target_layers,
+                                                                                 detail=False,
+                                                                                 path_db=path_wikisql,
+                                                                                 st_pos=0,
+                                                                                 dset_name='dev', EG=args.EG,
+                                                                                 col_pool_type=args.col_pool_type,
+                                                                                 beam_size=args.beam_size,
+                                                                                 aug=args.aug)
 
         print_result(epoch, acc_train, 'train')
         print_result(epoch, acc_dev, 'dev')

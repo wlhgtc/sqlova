@@ -11,7 +11,6 @@ import copy
 from wikisql.lib.common import count_lines, detokenize
 from wikisql.lib.query import Query
 
-
 client = None
 
 
@@ -31,7 +30,7 @@ def annotate(sentence, lower=True):
         'gloss': gloss,
         'words': words,
         'after': after,
-        }
+    }
 
 
 def annotate_example(example, table):
@@ -45,7 +44,8 @@ def annotate_example(example, table):
         c[-1] = annotate(str(c[-1]))
 
     q1 = 'SYMSELECT SYMAGG {} SYMCOL {}'.format(Query.agg_ops[sql['agg']], table['header'][sql['sel']])
-    q2 = ['SYMCOL {} SYMOP {} SYMCOND {}'.format(table['header'][col], Query.cond_ops[op], detokenize(cond)) for col, op, cond in sql['conds']]
+    q2 = ['SYMCOL {} SYMOP {} SYMCOND {}'.format(table['header'][col], Query.cond_ops[op], detokenize(cond)) for
+          col, op, cond in sql['conds']]
     if q2:
         q2 = 'SYMWHERE ' + ' SYMAND '.join(q2) + ' SYMEND'
     else:
@@ -65,6 +65,7 @@ def annotate_example(example, table):
     assert 'symend' in ann['where_output']['words']
     return ann
 
+
 def find_sub_list(sl, l):
     # from stack overflow.
     results = []
@@ -74,6 +75,7 @@ def find_sub_list(sl, l):
             results.append((ind, ind + sll - 1))
 
     return results
+
 
 def check_wv_tok_in_nlu_tok(wv_tok1, nlu_t1):
     """
@@ -92,7 +94,7 @@ def check_wv_tok_in_nlu_tok(wv_tok1, nlu_t1):
         results = find_sub_list(wv_tok11_low, nlu_t1_low)
         st_idx, ed_idx = results[0]
 
-        g_wvi1_corenlp.append( [st_idx, ed_idx] )
+        g_wvi1_corenlp.append([st_idx, ed_idx])
 
     return g_wvi1_corenlp
 
@@ -102,7 +104,7 @@ def annotate_example_ws(example, table):
     Jan. 2019: Wonseok
     Annotate only the information that will be used in our model.
     """
-    ann = {'table_id': example['table_id'],'phase': example['phase']}
+    ann = {'table_id': example['table_id'], 'phase': example['phase']}
     _nlu_ann = annotate(example['question'])
     ann['question'] = example['question']
     ann['question_tok'] = _nlu_ann['gloss']
@@ -117,7 +119,7 @@ def annotate_example_ws(example, table):
     for conds11 in conds1:
         _wv_ann1 = annotate(str(conds11[2]))
         wv_ann11 = _wv_ann1['gloss']
-        wv_ann1.append( wv_ann11 )
+        wv_ann1.append(wv_ann11)
 
         # Check whether wv_ann exsits inside question_tok
 

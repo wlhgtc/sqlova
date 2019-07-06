@@ -25,6 +25,7 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import create_session, mapper
 
+
 def question_to_json(table_id, question, json_file_name):
     record = {
         'phase': 1,
@@ -35,6 +36,7 @@ def question_to_json(table_id, question, json_file_name):
     with open(json_file_name, 'a+') as fout:
         json.dump(record, fout)
         fout.write('\n')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

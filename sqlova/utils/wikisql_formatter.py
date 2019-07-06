@@ -60,6 +60,7 @@ def get_tbl_context(t1):
 
     return context
 
+
 def generate_wikisql_bert(path_wikisql, dset_type):
     path_q = os.path.join(path_wikisql, f'{dset_type}.jsonl')
     path_tbl = os.path.join(path_wikisql, f'{dset_type}.tables.jsonl')
@@ -98,19 +99,13 @@ def generate_wikisql_bert(path_wikisql, dset_type):
         fnew.writelines(json_str)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
 
     # 0. Load wikisql
     path_h = '/Users/wonseok'
     path_wikisql = os.path.join(path_h, 'data', 'WikiSQL-1.1', 'data')
 
-
     dset_type_list = ['dev', 'test', 'train']
 
     for dset_type in dset_type_list:
         generate_wikisql_bert(path_wikisql, dset_type)
-
-
-
-
-

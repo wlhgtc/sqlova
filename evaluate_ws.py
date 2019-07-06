@@ -21,25 +21,25 @@ if __name__ == '__main__':
     saved_epoch = 'best'  # 30-162
 
     # Set path
-    path_h = '/home/wonseok' # change to your home folder
+    path_h = '/home/wonseok'  # change to your home folder
     path_wikisql_tok = os.path.join(path_h, 'data', 'wikisql_tok')
     path_save_analysis = '.'
 
     # Path for evaluation results.
-    path_wikisql0 = os.path.join(path_h,'data/WikiSQL-1.1/data')
+    path_wikisql0 = os.path.join(path_h, 'data/WikiSQL-1.1/data')
     path_source = os.path.join(path_wikisql0, f'{mode}.jsonl')
     path_db = os.path.join(path_wikisql0, f'{mode}.db')
     path_pred = os.path.join(path_save_analysis, f'results_{mode}.jsonl')
-
 
     # For the case when use "argument"
     parser = ArgumentParser()
     parser.add_argument('--source_file', help='source file for the prediction', default=path_source)
     parser.add_argument('--db_file', help='source database for the prediction', default=path_db)
     parser.add_argument('--pred_file', help='predictions by the model', default=path_pred)
-    parser.add_argument('--ordered', action='store_true', help='whether the exact match should consider the order of conditions')
+    parser.add_argument('--ordered', action='store_true',
+                        help='whether the exact match should consider the order of conditions')
     args = parser.parse_args()
-    args.ordered=ordered
+    args.ordered = ordered
 
     engine = DBEngine(args.db_file)
     exact_match = []
@@ -66,6 +66,4 @@ if __name__ == '__main__':
         print(json.dumps({
             'ex_accuracy': sum(grades) / len(grades),
             'lf_accuracy': sum(exact_match) / len(exact_match),
-            }, indent=2))
-
-
+        }, indent=2))

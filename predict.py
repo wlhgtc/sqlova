@@ -35,6 +35,7 @@ from sqlnet.dbengine import DBEngine
 from sqlova.utils.utils_wikisql import *
 from train import construct_hyper_param, get_models
 
+
 # This is a stripped down version of the test() method in train.py - identical, except:
 #   - does not attempt to measure accuracy and indeed does not expect the data to be labelled.
 #   - saves plain text sql queries.
@@ -43,7 +44,6 @@ def predict(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             max_seq_length,
             num_target_layers, detail=False, st_pos=0, cnt_tot=1, EG=False, beam_size=4,
             path_db=None, dset_name='test'):
-
     model.eval()
     model_bert.eval()
 
@@ -73,9 +73,9 @@ def predict(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             # sort and generate
             pr_wc, pr_wo, pr_wv, pr_sql_i = sort_and_generate_pr_w(pr_sql_i)
             # Following variables are just for consistency with no-EG case.
-            pr_wvi = None # not used
-            pr_wv_str=None
-            pr_wv_str_wp=None
+            pr_wvi = None  # not used
+            pr_wv_str = None
+            pr_wv_str_wp = None
 
         pr_sql_q = generate_sql_q(pr_sql_i, tb)
 
@@ -88,6 +88,7 @@ def predict(data_loader, data_table, model, model_bert, bert_config, tokenizer,
             results.append(results1)
 
     return results
+
 
 ## Set up hyper parameters and paths
 parser = argparse.ArgumentParser()
@@ -106,10 +107,12 @@ path_save_for_evaluation = args.result_path
 path_model_bert = args.bert_model_file
 path_model = args.model_file
 args.no_pretraining = True  # counterintuitive, but avoids loading unused models
-model, model_bert, tokenizer, bert_config = get_models(args, BERT_PT_PATH, trained=True, path_model_bert=path_model_bert, path_model=path_model)
+model, model_bert, tokenizer, bert_config = get_models(args, BERT_PT_PATH, trained=True,
+                                                       path_model_bert=path_model_bert, path_model=path_model)
 
 # Load data
-dev_data, dev_table = load_wikisql_data(args.data_path, mode=args.split, toy_model=args.toy_model, toy_size=args.toy_size, no_hs_tok=True)
+dev_data, dev_table = load_wikisql_data(args.data_path, mode=args.split, toy_model=args.toy_model,
+                                        toy_size=args.toy_size, no_hs_tok=True)
 dev_loader = torch.utils.data.DataLoader(
     batch_size=args.bS,
     dataset=dev_data,

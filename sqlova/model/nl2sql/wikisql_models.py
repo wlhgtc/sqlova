@@ -11,11 +11,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from sqlova.utils.utils import topk_multi_dim
 from sqlova.utils.utils_wikisql import *
+
 
 class Seq2SQL_v1(nn.Module):
     def __init__(self, iS, hS, lS, dr, n_cond_ops, n_agg_ops, old=False):
@@ -34,8 +34,7 @@ class Seq2SQL_v1(nn.Module):
         self.wnp = WNP(iS, hS, lS, dr)
         self.wcp = WCP(iS, hS, lS, dr)
         self.wop = WOP(iS, hS, lS, dr, n_cond_ops)
-        self.wvp = WVP_se(iS, hS, lS, dr, n_cond_ops, old=old) # start-end-search-discriminative model
-
+        self.wvp = WVP_se(iS, hS, lS, dr, n_cond_ops, old=old)  # start-end-search-discriminative model
 
     def forward(self, wemb_n, l_n, wemb_hpu, l_hpu, l_hs,
                 g_sc=None, g_sa=None, g_wn=None, g_wc=None, g_wo=None, g_wvi=None,
@@ -57,7 +56,6 @@ class Seq2SQL_v1(nn.Module):
             pr_sa = g_sa
         else:
             pr_sa = pred_sa(s_sa)
-
 
         # wn
         s_wn = self.wnp(wemb_n, l_n, wemb_hpu, l_hpu, l_hs, show_p_wn=show_p_wn)
@@ -114,13 +112,13 @@ class Seq2SQL_v1(nn.Module):
 
         # calculate and predict s_sa.
         for i_beam in range(beam_size):
-            pr_sc = list( array(pr_sc_beam)[:,i_beam] )
+            pr_sc = list(array(pr_sc_beam)[:, i_beam])
             s_sa = self.sap(wemb_n, l_n, wemb_hpu, l_hpu, l_hs, pr_sc, show_p_sa=show_p_sa)
             prob_sa = F.softmax(s_sa, dim=-1)
             prob_sc_sa[:, i_beam, :] = prob_sa
 
-            prob_sc_selected = prob_sc[range(bS), pr_sc] # [B]
-            prob_sca[:,i_beam,:] =  (prob_sa.t() * prob_sc_selected).t()
+            prob_sc_selected = prob_sc[range(bS), pr_sc]  # [B]
+            prob_sca[:, i_beam, :] = (prob_sa.t() * prob_sc_selected).t()
             # [mcL, B] * [B] -> [mcL, B] (element-wise multiplication)
             # [mcL, B] -> [B, mcL]
 
@@ -131,7 +129,7 @@ class Seq2SQL_v1(nn.Module):
         idxs = topk_multi_dim(torch.tensor(prob_sca), n_topk=beam_size, batch_exist=True)
         # Now as sc_idx is already sorted, re-map them properly.
 
-        idxs = remap_sc_idx(idxs, pr_sc_beam) # [sc_beam_idx, sa_idx] -> [sc_idx, sa_idx]
+        idxs = remap_sc_idx(idxs, pr_sc_beam)  # [sc_beam_idx, sa_idx] -> [sc_idx, sa_idx]
         idxs_arr = array(idxs)
         # [B, beam_size, remainig dim]
         # idxs[b][0] gives first probable [sc_idx, sa_idx] pairs.
@@ -141,8 +139,8 @@ class Seq2SQL_v1(nn.Module):
         beam_idx_sca = [0] * bS
         beam_meet_the_final = [False] * bS
         while True:
-            pr_sc = idxs_arr[range(bS),beam_idx_sca,0]
-            pr_sa = idxs_arr[range(bS),beam_idx_sca,1]
+            pr_sc = idxs_arr[range(bS), beam_idx_sca, 0]
+            pr_sa = idxs_arr[range(bS), beam_idx_sca, 1]
 
             # map index properly
 
@@ -152,7 +150,7 @@ class Seq2SQL_v1(nn.Module):
                 break
             else:
                 for b, check1 in enumerate(check):
-                    if not check1: # wrong pair
+                    if not check1:  # wrong pair
                         beam_idx_sca[b] += 1
                         if beam_idx_sca[b] >= beam_size:
                             beam_meet_the_final[b] = True
@@ -162,7 +160,6 @@ class Seq2SQL_v1(nn.Module):
 
             if sum(beam_meet_the_final) == bS:
                 break
-
 
         # Now pr_sc, pr_sa are properly predicted.
         pr_sc_best = list(pr_sc)
@@ -179,11 +176,11 @@ class Seq2SQL_v1(nn.Module):
         # pr_wc_sorted_by_prob = pred_wc_sorted_by_prob(s_wc)
 
         # get max_wn # of most probable columns & their prob.
-        pr_wn_max = [self.max_wn]*bS
-        pr_wc_max = pred_wc(pr_wn_max, s_wc) # if some column do not have executable where-claouse, omit that column
+        pr_wn_max = [self.max_wn] * bS
+        pr_wc_max = pred_wc(pr_wn_max, s_wc)  # if some column do not have executable where-claouse, omit that column
         prob_wc_max = zeros([bS, self.max_wn])
         for b, pr_wc_max1 in enumerate(pr_wc_max):
-            prob_wc_max[b,:] = prob_wc[b,pr_wc_max1]
+            prob_wc_max[b, :] = prob_wc[b, pr_wc_max1]
 
         # get most probable max_wn where-clouses
         # wo
@@ -193,10 +190,11 @@ class Seq2SQL_v1(nn.Module):
 
         pr_wvi_beam_op_list = []
         prob_wvi_beam_op_list = []
-        for i_op  in range(self.n_cond_ops-1):
-            pr_wo_temp = [ [i_op]*self.max_wn ]*bS
+        for i_op in range(self.n_cond_ops - 1):
+            pr_wo_temp = [[i_op] * self.max_wn] * bS
             # wv
-            s_wv = self.wvp(wemb_n, l_n, wemb_hpu, l_hpu, l_hs, wn=pr_wn_max, wc=pr_wc_max, wo=pr_wo_temp, show_p_wv=show_p_wv)
+            s_wv = self.wvp(wemb_n, l_n, wemb_hpu, l_hpu, l_hs, wn=pr_wn_max, wc=pr_wc_max, wo=pr_wo_temp,
+                            show_p_wv=show_p_wv)
             prob_wv = F.softmax(s_wv, dim=-2).detach().to('cpu').numpy()
 
             # prob_wv
@@ -210,10 +208,10 @@ class Seq2SQL_v1(nn.Module):
         # Calculate joint probability of where-clause
         # prob_w = [batch, wc, wo, wv] = [B, max_wn, n_cond_op, n_pairs]
         n_wv_beam_pairs = prob_wvi_beam.shape[2]
-        prob_w = zeros([bS, self.max_wn, self.n_cond_ops-1, n_wv_beam_pairs])
+        prob_w = zeros([bS, self.max_wn, self.n_cond_ops - 1, n_wv_beam_pairs])
         for b in range(bS):
             for i_wn in range(self.max_wn):
-                for i_op in range(self.n_cond_ops-1): # do not use final one
+                for i_op in range(self.n_cond_ops - 1):  # do not use final one
                     for i_wv_beam in range(n_wv_beam_pairs):
                         # i_wc = pr_wc_max[b][i_wn] # already done
                         p_wc = prob_wc_max[b, i_wn]
@@ -239,11 +237,12 @@ class Seq2SQL_v1(nn.Module):
                 wvi = pr_wvi_beam_op_list[i_op][b][idxs11[0]][idxs11[2]]
 
                 # get wv_str
-                temp_pr_wv_str, _ = convert_pr_wvi_to_string([[wvi]], [nlu_t[b]], [nlu_wp_t[b]], [wp_to_wh_index[b]], [nlu[b]])
+                temp_pr_wv_str, _ = convert_pr_wvi_to_string([[wvi]], [nlu_t[b]], [nlu_wp_t[b]], [wp_to_wh_index[b]],
+                                                             [nlu[b]])
                 merged_wv11 = merge_wv_t1_eng(temp_pr_wv_str[0][0], nlu[b])
                 conds11 = [i_wc, i_op, merged_wv11]
 
-                prob_conds11 = prob_w[b, idxs11[0], idxs11[1], idxs11[2] ]
+                prob_conds11 = prob_w[b, idxs11[0], idxs11[1], idxs11[2]]
 
                 # test execution
                 # print(nlu[b])
@@ -265,11 +264,11 @@ class Seq2SQL_v1(nn.Module):
         pr_wn_based_on_prob = []
 
         for b, prob_wn1 in enumerate(prob_wn):
-            max_executable_wn1 = len( conds_max[b] )
+            max_executable_wn1 = len(conds_max[b])
             prob_wn_w1 = []
             prob_wn_w1.append(prob_wn1[0])  # wn=0 case.
             for i_wn in range(max_executable_wn1):
-                prob_wn_w11 = prob_wn1[i_wn+1] * prob_conds_max[b][i_wn]
+                prob_wn_w11 = prob_wn1[i_wn + 1] * prob_conds_max[b][i_wn]
                 prob_wn_w1.append(prob_wn_w11)
             pr_wn_based_on_prob.append(argmax(prob_wn_w1))
             prob_wn_w.append(prob_wn_w1)
@@ -279,6 +278,7 @@ class Seq2SQL_v1(nn.Module):
         # s_wv = [B, max_wn, max_nlu_tokens, 2]
         return prob_sca, prob_w, prob_wn_w, pr_sc_best, pr_sa_best, pr_wn_based_on_prob, pr_sql_i
 
+
 class SCP(nn.Module):
     def __init__(self, iS=300, hS=100, lS=2, dr=0.3):
         super(SCP, self).__init__()
@@ -286,7 +286,6 @@ class SCP(nn.Module):
         self.hS = hS
         self.lS = lS
         self.dr = dr
-
 
         self.enc_h = nn.LSTM(input_size=iS, hidden_size=int(hS / 2),
                              num_layers=lS, batch_first=True,
@@ -329,15 +328,15 @@ class SCP(nn.Module):
             # p = [b, hs, n]
             if p_n.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001, figsize=(12,3.5))
+            fig = figure(2001, figsize=(12, 3.5))
             # subplot(6,2,7)
-            subplot2grid((7,2), (3, 0), rowspan=2)
+            subplot2grid((7, 2), (3, 0), rowspan=2)
             cla()
-            _color='rgbkcm'
-            _symbol='.......'
+            _color = 'rgbkcm'
+            _symbol = '.......'
             for i_h in range(l_hs[0]):
                 color_idx = i_h % len(_color)
-                plot(p_n[0][i_h][:].data.numpy() - i_h, '--'+_symbol[color_idx]+_color[color_idx], ms=7)
+                plot(p_n[0][i_h][:].data.numpy() - i_h, '--' + _symbol[color_idx] + _color[color_idx], ms=7)
 
             title('sc: p_n for each h')
             grid(True)
@@ -345,15 +344,13 @@ class SCP(nn.Module):
             fig.canvas.draw()
             show()
 
-
-
         #   p_n [ bS, mL_hs, mL_n]  -> [ bS, mL_hs, mL_n, 1]
         #   wenc_n [ bS, mL_n, 100] -> [ bS, 1, mL_n, 100]
         #   -> [bS, mL_hs, mL_n, 100] -> [bS, mL_hs, 100]
         c_n = torch.mul(p_n.unsqueeze(3), wenc_n.unsqueeze(1)).sum(dim=2)
 
         vec = torch.cat([self.W_c(c_n), self.W_hs(wenc_hs)], dim=2)
-        s_sc = self.sc_out(vec).squeeze(2) # [bS, mL_hs, 1] -> [bS, mL_hs]
+        s_sc = self.sc_out(vec).squeeze(2)  # [bS, mL_hs, 1] -> [bS, mL_hs]
 
         # Penalty
         mL_hs = max(l_hs)
@@ -371,7 +368,6 @@ class SAP(nn.Module):
         self.hS = hS
         self.lS = lS
         self.dr = dr
-
 
         self.enc_h = nn.LSTM(input_size=iS, hidden_size=int(hS / 2),
                              num_layers=lS, batch_first=True,
@@ -421,8 +417,8 @@ class SAP(nn.Module):
         if show_p_sa:
             if p.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001);
-            subplot(7,2,3)
+            fig = figure(2001);
+            subplot(7, 2, 3)
             cla()
             plot(p[0].data.numpy(), '--rs', ms=7)
             title('sa: nlu_weight')
@@ -430,7 +426,7 @@ class SAP(nn.Module):
             fig.tight_layout()
             fig.canvas.draw()
             show()
-            
+
         #    [bS, mL_n, 100] * ( [bS, mL_n, 1] -> [bS, mL_n, 100])
         #       -> [bS, mL_n, 100] -> [bS, 100]
         c_n = torch.mul(wenc_n, p.unsqueeze(2).expand_as(wenc_n)).sum(dim=1)
@@ -492,8 +488,8 @@ class WNP(nn.Module):
         if show_p_wn:
             if p_h.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001);
-            subplot(7,2,5)
+            fig = figure(2001);
+            subplot(7, 2, 5)
             cla()
             plot(p_h[0].data.numpy(), '--rs', ms=7)
             title('wn: header_weight')
@@ -531,8 +527,8 @@ class WNP(nn.Module):
         if show_p_wn:
             if p_n.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001);
-            subplot(7,2,6)
+            fig = figure(2001);
+            subplot(7, 2, 6)
             cla()
             plot(p_n[0].data.numpy(), '--rs', ms=7)
             title('wn: nlu_weight')
@@ -547,6 +543,7 @@ class WNP(nn.Module):
         s_wn = self.wn_out(c_n)
 
         return s_wn
+
 
 class WCP(nn.Module):
     def __init__(self, iS=300, hS=100, lS=2, dr=0.3):
@@ -602,15 +599,15 @@ class WCP(nn.Module):
             # p = [b, hs, n]
             if p.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001);
+            fig = figure(2001);
             # subplot(6,2,7)
-            subplot2grid((7,2), (3, 1), rowspan=2)
+            subplot2grid((7, 2), (3, 1), rowspan=2)
             cla()
-            _color='rgbkcm'
-            _symbol='.......'
+            _color = 'rgbkcm'
+            _symbol = '.......'
             for i_h in range(l_hs[0]):
                 color_idx = i_h % len(_color)
-                plot(p[0][i_h][:].data.numpy() - i_h, '--'+_symbol[color_idx]+_color[color_idx], ms=7)
+                plot(p[0][i_h][:].data.numpy() - i_h, '--' + _symbol[color_idx] + _color[color_idx], ms=7)
 
             title('wc: p_n for each h')
             grid(True)
@@ -641,7 +638,7 @@ class WOP(nn.Module):
         self.lS = lS
         self.dr = dr
 
-        self.mL_w = 4 # max where condition number
+        self.mL_w = 4  # max where condition number
 
         self.enc_h = nn.LSTM(input_size=iS, hidden_size=int(hS / 2),
                              num_layers=lS, batch_first=True,
@@ -655,7 +652,7 @@ class WOP(nn.Module):
         self.W_c = nn.Linear(hS, hS)
         self.W_hs = nn.Linear(hS, hS)
         self.wo_out = nn.Sequential(
-            nn.Linear(2*hS, hS),
+            nn.Linear(2 * hS, hS),
             nn.Tanh(),
             nn.Linear(hS, n_cond_ops)
         )
@@ -676,26 +673,25 @@ class WOP(nn.Module):
         bS = len(l_hs)
         # wn
 
-
-        wenc_hs_ob = [] # observed hs
+        wenc_hs_ob = []  # observed hs
         for b in range(bS):
             # [[...], [...]]
             # Pad list to maximum number of selections
             real = [wenc_hs[b, col] for col in wc[b]]
-            pad = (self.mL_w - wn[b]) * [wenc_hs[b, 0]] # this padding could be wrong. Test with zero padding later.
-            wenc_hs_ob1 = torch.stack(real + pad) # It is not used in the loss function.
+            pad = (self.mL_w - wn[b]) * [wenc_hs[b, 0]]  # this padding could be wrong. Test with zero padding later.
+            wenc_hs_ob1 = torch.stack(real + pad)  # It is not used in the loss function.
             wenc_hs_ob.append(wenc_hs_ob1)
 
         # list to [B, 4, dim] tensor.
-        wenc_hs_ob = torch.stack(wenc_hs_ob) # list to tensor.
+        wenc_hs_ob = torch.stack(wenc_hs_ob)  # list to tensor.
         wenc_hs_ob = wenc_hs_ob.to(device)
 
         # [B, 1, mL_n, dim] * [B, 4, dim, 1]
         #  -> [B, 4, mL_n, 1] -> [B, 4, mL_n]
         # multiplication bewteen NLq-tokens and  selected column
         att = torch.matmul(self.W_att(wenc_n).unsqueeze(1),
-                              wenc_hs_ob.unsqueeze(3)
-                              ).squeeze(3)
+                           wenc_hs_ob.unsqueeze(3)
+                           ).squeeze(3)
 
         # Penalty for blank part.
         mL_n = max(l_n)
@@ -708,15 +704,15 @@ class WOP(nn.Module):
             # p = [b, hs, n]
             if p.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001)
+            fig = figure(2001)
             # subplot(6,2,7)
-            subplot2grid((7,2), (5, 0), rowspan=2)
+            subplot2grid((7, 2), (5, 0), rowspan=2)
             cla()
-            _color='rgbkcm'
-            _symbol='.......'
+            _color = 'rgbkcm'
+            _symbol = '.......'
             for i_wn in range(self.mL_w):
                 color_idx = i_wn % len(_color)
-                plot(p[0][i_wn][:].data.numpy() - i_wn, '--'+_symbol[color_idx]+_color[color_idx], ms=7)
+                plot(p[0][i_wn][:].data.numpy() - i_wn, '--' + _symbol[color_idx] + _color[color_idx], ms=7)
 
             title('wo: p_n for selected h')
             grid(True)
@@ -736,6 +732,7 @@ class WOP(nn.Module):
 
         return s_wo
 
+
 class WVP_se(nn.Module):
     """
     Discriminative model
@@ -744,6 +741,7 @@ class WVP_se(nn.Module):
     Input:      Encoded nlu & selected column.
     Algorithm: Encoded nlu & selected column. -> classifier -> mask scores -> ...
     """
+
     def __init__(self, iS=300, hS=100, lS=2, dr=0.3, n_cond_ops=4, old=False):
         super(WVP_se, self).__init__()
         self.iS = iS
@@ -769,8 +767,8 @@ class WVP_se(nn.Module):
 
         # self.W_n = nn.Linear(hS, hS)
         if old:
-            self.wv_out =  nn.Sequential(
-            nn.Linear(4 * hS, 2)
+            self.wv_out = nn.Sequential(
+                nn.Linear(4 * hS, 2)
             )
         else:
             self.wv_out = nn.Sequential(
@@ -792,9 +790,9 @@ class WVP_se(nn.Module):
         # Encode
         if not wenc_n:
             wenc_n, hout, cout = encode(self.enc_n, wemb_n, l_n,
-                            return_hidden=True,
-                            hc0=None,
-                            last_only=False)  # [b, n, dim]
+                                        return_hidden=True,
+                                        hc0=None,
+                                        last_only=False)  # [b, n, dim]
 
         wenc_hs = encode_hpu(self.enc_h, wemb_hpu, l_hpu, l_hs)  # [b, hs, dim]
 
@@ -813,7 +811,6 @@ class WVP_se(nn.Module):
         # list to [B, 4, dim] tensor.
         wenc_hs_ob = torch.stack(wenc_hs_ob)  # list to tensor.
         wenc_hs_ob = wenc_hs_ob.to(device)
-
 
         # Column attention
         # [B, 1, mL_n, dim] * [B, 4, dim, 1]
@@ -834,22 +831,21 @@ class WVP_se(nn.Module):
             # p = [b, hs, n]
             if p.shape[0] != 1:
                 raise Exception("Batch size should be 1.")
-            fig=figure(2001)
+            fig = figure(2001)
             # subplot(6,2,7)
-            subplot2grid((7,2), (5, 1), rowspan=2)
+            subplot2grid((7, 2), (5, 1), rowspan=2)
             cla()
-            _color='rgbkcm'
-            _symbol='.......'
+            _color = 'rgbkcm'
+            _symbol = '.......'
             for i_wn in range(self.mL_w):
                 color_idx = i_wn % len(_color)
-                plot(p[0][i_wn][:].data.numpy() - i_wn, '--'+_symbol[color_idx]+_color[color_idx], ms=7)
+                plot(p[0][i_wn][:].data.numpy() - i_wn, '--' + _symbol[color_idx] + _color[color_idx], ms=7)
 
             title('wv: p_n for selected h')
             grid(True)
             fig.tight_layout()
             fig.canvas.draw()
             show()
-
 
         # [B, 1, mL_n, dim] * [B, 4, mL_n, 1]
         #  --> [B, 4, mL_n, dim]
@@ -872,7 +868,7 @@ class WVP_se(nn.Module):
                     wo11 = wo1[i_wo11]
                     idx_scatter.append([int(wo11)])
                 else:
-                    idx_scatter.append([0]) # not used anyway
+                    idx_scatter.append([0])  # not used anyway
 
             wenc_op1 = wenc_op1.scatter(1, torch.tensor(idx_scatter), 1)
 
@@ -889,18 +885,19 @@ class WVP_se(nn.Module):
         # Make extended vector based on encoded nl token containing column and operator information.
         # wenc_n = [bS, mL, 100]
         # vec2 = [bS, 4, mL, 400]
-        vec1e = vec.unsqueeze(2).expand(-1,-1, mL_n, -1) # [bS, 4, 1, 300]  -> [bS, 4, mL, 300]
-        wenc_ne = wenc_n.unsqueeze(1).expand(-1, 4, -1, -1) # [bS, 1, mL, 100] -> [bS, 4, mL, 100]
-        vec2 = torch.cat( [vec1e, wenc_ne], dim=3)
+        vec1e = vec.unsqueeze(2).expand(-1, -1, mL_n, -1)  # [bS, 4, 1, 300]  -> [bS, 4, mL, 300]
+        wenc_ne = wenc_n.unsqueeze(1).expand(-1, 4, -1, -1)  # [bS, 1, mL, 100] -> [bS, 4, mL, 100]
+        vec2 = torch.cat([vec1e, wenc_ne], dim=3)
 
         # now make logits
-        s_wv = self.wv_out(vec2) # [bS, 4, mL, 400] -> [bS, 4, mL, 2]
+        s_wv = self.wv_out(vec2)  # [bS, 4, mL, 400] -> [bS, 4, mL, 2]
 
         # penalty for spurious tokens
         for b, l_n1 in enumerate(l_n):
             if l_n1 < mL_n:
                 s_wv[b, :, l_n1:, :] = -10000000000
         return s_wv
+
 
 def Loss_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, g_sc, g_sa, g_wn, g_wc, g_wo, g_wvi):
     """
@@ -920,6 +917,7 @@ def Loss_sw_se(s_sc, s_sa, s_wn, s_wc, s_wo, s_wv, g_sc, g_sa, g_wn, g_wc, g_wo,
 
     return loss
 
+
 def Loss_sc(s_sc, g_sc):
     loss = F.cross_entropy(s_sc, torch.tensor(g_sc).to(device))
     return loss
@@ -929,13 +927,14 @@ def Loss_sa(s_sa, g_sa):
     loss = F.cross_entropy(s_sa, torch.tensor(g_sa).to(device))
     return loss
 
+
 def Loss_wn(s_wn, g_wn):
     loss = F.cross_entropy(s_wn, torch.tensor(g_wn).to(device))
 
     return loss
 
-def Loss_wc(s_wc, g_wc):
 
+def Loss_wc(s_wc, g_wc):
     # Construct index matrix
     bS, max_h_len = s_wc.shape
     im = torch.zeros([bS, max_h_len]).to(device)
@@ -950,7 +949,6 @@ def Loss_wc(s_wc, g_wc):
 
 
 def Loss_wo(s_wo, g_wn, g_wo):
-
     # Construct index matrix
     loss = 0
     for b, g_wn1 in enumerate(g_wn):
@@ -961,6 +959,7 @@ def Loss_wo(s_wo, g_wn, g_wo):
         loss += F.cross_entropy(s_wo1[:g_wn1], torch.tensor(g_wo1).to(device))
 
     return loss
+
 
 def Loss_wv_se(s_wv, g_wn, g_wvi):
     """
@@ -976,28 +975,27 @@ def Loss_wv_se(s_wv, g_wn, g_wvi):
         if g_wn1 == 0:
             continue
         g_wvi1 = torch.tensor(g_wvi1).to(device)
-        g_st1 = g_wvi1[:,0]
-        g_ed1 = g_wvi1[:,1]
+        g_st1 = g_wvi1[:, 0]
+        g_ed1 = g_wvi1[:, 1]
         # loss from the start position
-        loss += F.cross_entropy(s_wv[b,:g_wn1,:,0], g_st1)
+        loss += F.cross_entropy(s_wv[b, :g_wn1, :, 0], g_st1)
 
         # print("st_login: ", s_wv[b,:g_wn1,:,0], g_st1, loss)
         # loss from the end position
-        loss += F.cross_entropy(s_wv[b,:g_wn1,:,1], g_ed1)
+        loss += F.cross_entropy(s_wv[b, :g_wn1, :, 1], g_ed1)
         # print("ed_login: ", s_wv[b,:g_wn1,:,1], g_ed1, loss)
 
     return loss
 
 
-
-
 # ========= Decoder-Layer ===========
 class FT_s2s_1(nn.Module):
     """ Decoder-Layer """
+
     def __init__(self, iS, hS, lS, dr, max_seq_length, n_cond_ops, n_agg_ops, old=False):
         super(FT_s2s_1, self).__init__()
-        self.iS = iS # input_size
-        self.hS = hS # hidden_size
+        self.iS = iS  # input_size
+        self.hS = hS  # hidden_size
         self.ls = lS
         self.dr = dr
 
@@ -1007,11 +1005,9 @@ class FT_s2s_1(nn.Module):
 
         self.decoder_s2s = Decoder_s2s(iS, hS, lS, dr, max_seq_length)
 
-
     def forward(self, wenc_s2s, l_input, cls_vec, pnt_start_tok, g_pnt_idxs=None):
         score = self.decoder_s2s(wenc_s2s, l_input, cls_vec, pnt_start_tok, g_pnt_idxs)
         return score
-
 
     def EG_forward(self, wenc_s2s, l_input, cls_vec,
                    pnt_start_tok, pnt_end_tok,
@@ -1058,15 +1054,14 @@ class Decoder_s2s(nn.Module):
 
         self.wv_out = nn.Sequential(nn.Tanh(), nn.Linear(hS, 1))
 
-
-    def forward(self, wenc_s2s, l_input, cls_vec, pnt_start_tok, g_pnt_idxs=None,):
+    def forward(self, wenc_s2s, l_input, cls_vec, pnt_start_tok, g_pnt_idxs=None, ):
 
         # Encode
         bS, mL_input, iS = wenc_s2s.shape
 
         # Now, pointer network.
         ipnt = wenc_s2s.new_zeros(bS, 1, mL_input).to(device)  # [B, 1, 200]
-        ipnt[:, 0, pnt_start_tok] = 1 # 27 is of start token under current tokenization scheme
+        ipnt[:, 0, pnt_start_tok] = 1  # 27 is of start token under current tokenization scheme
 
         # initial (current) pointer
         cpnt = ipnt
@@ -1078,14 +1073,14 @@ class Decoder_s2s(nn.Module):
         h_0 = torch.zeros([self.lS, bS, self.hS]).to(device)
         c_0 = torch.zeros([self.lS, bS, self.hS]).to(device)
         for i_layer in range(self.lS):
-            h_st = (2*i_layer)*self.hS
+            h_st = (2 * i_layer) * self.hS
             h_ed = h_st + self.hS
 
-            c_st = (2*i_layer+1)*self.hS
+            c_st = (2 * i_layer + 1) * self.hS
             c_ed = c_st + self.hS
 
-            h_0[i_layer] = cls_vec[:, h_st:h_ed] # [ # of layers, batch, dim]
-            c_0[i_layer] = cls_vec[:, c_st:c_ed] # [ # of layers, batch, dim]
+            h_0[i_layer] = cls_vec[:, h_st:h_ed]  # [ # of layers, batch, dim]
+            c_0[i_layer] = cls_vec[:, c_st:c_ed]  # [ # of layers, batch, dim]
 
         if g_pnt_idxs:
 
@@ -1106,7 +1101,7 @@ class Decoder_s2s(nn.Module):
             s_wv = self.wv_out(
                 self.W_s2s(wenc_s2s)
                 + self.W_pnt(dec_pn)
-            ).squeeze(3) # [B, T, mL_input, dim] -> [B, T, mL_input, 1] -> [B, T, mL_input]
+            ).squeeze(3)  # [B, T, mL_input, dim] -> [B, T, mL_input, 1] -> [B, T, mL_input]
             # s_wv = [B, 4, T, mL_n] = [batch, conds, token idx, score]
 
             # penalty
@@ -1153,9 +1148,8 @@ class Decoder_s2s(nn.Module):
                 cpnt = cpnt.unsqueeze(1)  # --> [B * 4, 1, 200]
                 t += 1
 
-
-            s_wv = torch.stack(s_wv_list, 1) # [B,
-            s_wv = s_wv.squeeze(2) #
+            s_wv = torch.stack(s_wv_list, 1)  # [B,
+            s_wv = s_wv.squeeze(2)  #
             # # Following lines seems to be unnecessary.
             # # Penalty to blank parts
             # for b, l_input1 in enumerate(l_input):
@@ -1164,11 +1158,10 @@ class Decoder_s2s(nn.Module):
 
         return s_wv
 
-
     def EG_forward(self, wenc_s2s, l_input, cls_vec,
                    pnt_start_tok, pnt_end_tok,
-                   i_sql_vocab, i_nlu, i_hds, # for EG
-                   tokens, nlu, nlu_t, hds, tt_to_t_idx, # for EG
+                   i_sql_vocab, i_nlu, i_hds,  # for EG
+                   tokens, nlu, nlu_t, hds, tt_to_t_idx,  # for EG
                    tb, engine,
                    beam_size, beam_only=True):
 
@@ -1182,15 +1175,14 @@ class Decoder_s2s(nn.Module):
         h_0 = torch.zeros([self.lS, bS, self.hS]).to(device)
         c_0 = torch.zeros([self.lS, bS, self.hS]).to(device)
         for i_layer in range(self.lS):
-            h_st = (2*i_layer)*self.hS
+            h_st = (2 * i_layer) * self.hS
             h_ed = h_st + self.hS
 
-            c_st = (2*i_layer+1)*self.hS
+            c_st = (2 * i_layer + 1) * self.hS
             c_ed = c_st + self.hS
 
-            h_0[i_layer] = cls_vec[:, h_st:h_ed] # [ # of layers, batch, dim]
-            c_0[i_layer] = cls_vec[:, c_st:c_ed] # [ # of layers, batch, dim]
-
+            h_0[i_layer] = cls_vec[:, h_st:h_ed]  # [ # of layers, batch, dim]
+            c_0[i_layer] = cls_vec[:, c_st:c_ed]  # [ # of layers, batch, dim]
 
         # initial (current) pointer
         pnt_list_beam = []
@@ -1200,7 +1192,7 @@ class Decoder_s2s(nn.Module):
         for i_beam in range(beam_size):
             pnt_list_beam1 = []
             for b in range(bS):
-                pnt_list_beam1.append( [ [pnt_start_tok], 0] )
+                pnt_list_beam1.append([[pnt_start_tok], 0])
             pnt_list_beam.append(pnt_list_beam1)
             # initisl cpnt
             # Now, initialize pointer network.
@@ -1209,11 +1201,11 @@ class Decoder_s2s(nn.Module):
             ipnt[:, 0, pnt_start_tok] = 1  # 27 is of start token under current tokenization scheme
 
             cpnt_beam.append(ipnt)
-            cpnt_h_beam.append( (h_0, c_0) )
+            cpnt_h_beam.append((h_0, c_0))
         t = 0
         while t < self.Tmax:
             # s_wv1_beam = []
-            candidates = [ [] for b in range(bS) ]  # [bS]
+            candidates = [[] for b in range(bS)]  # [bS]
 
             # Generate beam
             for i_beam, cpnt in enumerate(cpnt_beam):
@@ -1240,7 +1232,6 @@ class Decoder_s2s(nn.Module):
                     if l_input1 < mL_input:
                         s_wv1[b, :, l_input1:] = -10000000000
 
-
                 # Get the candidates only among the input space.
                 prob, idxs = F.softmax(s_wv1.view(bS, -1), dim=1).topk(dim=1, k=max(l_input))
                 log_prob = torch.log(prob)  # [bS, beam_size]
@@ -1250,7 +1241,7 @@ class Decoder_s2s(nn.Module):
                     for i_can, log_prob11 in enumerate(log_prob1):
                         # no update if last token was the end-token
                         previous_pnt = pnt_list11[-1]
-                        if previous_pnt== pnt_end_tok:
+                        if previous_pnt == pnt_end_tok:
                             new_seq = pnt_list11
                             new_score = score
                         else:
@@ -1259,7 +1250,6 @@ class Decoder_s2s(nn.Module):
                         _candidate = [new_seq, new_score]
 
                         candidates[b].append(_candidate)
-
 
             # Execution-guided beam filtering
             for b, candidates1 in enumerate(candidates):
@@ -1271,17 +1261,20 @@ class Decoder_s2s(nn.Module):
                         if beam_only:
                             selected_candidates1.append(new_pnt_list_batch11)
                             pnt_list_beam[cnt][b] = new_pnt_list_batch11
-                            cnt +=1
+                            cnt += 1
                         else:
                             # Need to be modified here.
                             executable = False
                             testable = False
 
-                            pr_i_vg_list, pr_i_vg_sub_list = gen_i_vg_from_pnt_idxs([new_pnt_list_batch11[0]], [i_sql_vocab[b]], [i_nlu[b]],
+                            pr_i_vg_list, pr_i_vg_sub_list = gen_i_vg_from_pnt_idxs([new_pnt_list_batch11[0]],
+                                                                                    [i_sql_vocab[b]], [i_nlu[b]],
                                                                                     [i_hds[b]])
-                            pr_sql_q_s2s, pr_sql_i = gen_sql_q_from_i_vg([tokens[b]], [nlu[b]], [nlu_t[b]], [hds[b]], [tt_to_t_idx[b]],
+                            pr_sql_q_s2s, pr_sql_i = gen_sql_q_from_i_vg([tokens[b]], [nlu[b]], [nlu_t[b]], [hds[b]],
+                                                                         [tt_to_t_idx[b]],
                                                                          pnt_start_tok, pnt_end_tok,
-                                                                         [new_pnt_list_batch11[0]], pr_i_vg_list, pr_i_vg_sub_list)
+                                                                         [new_pnt_list_batch11[0]], pr_i_vg_list,
+                                                                         pr_i_vg_sub_list)
 
                             # check testability from select-clause
                             try:
@@ -1317,7 +1310,6 @@ class Decoder_s2s(nn.Module):
                             else:
                                 add_candidate = True
 
-
                             if add_candidate:
                                 selected_candidates1.append(new_pnt_list_batch11)
                                 pnt_list_beam[cnt][b] = new_pnt_list_batch11
@@ -1330,7 +1322,7 @@ class Decoder_s2s(nn.Module):
                     # not executable at all..
                     # add junk sequence.
                     for i_junk in range(cnt, beam_size):
-                        pnt_list_beam[i_junk][b] = [[pnt_end_tok],-9999999]
+                        pnt_list_beam[i_junk][b] = [[pnt_end_tok], -9999999]
 
             # generate cpnt
             # formatting pnt_n as a one-hot input.
@@ -1350,7 +1342,7 @@ class Decoder_s2s(nn.Module):
         for b in range(bS):
             pnt_list_beam_best = pnt_list_beam[0]
             pr_pnt_idxs.append(pnt_list_beam_best[b][0])
-            p_list.append( pnt_list_beam_best[b][1])
+            p_list.append(pnt_list_beam_best[b][1])
 
         return pr_pnt_idxs, p_list, pnt_list_beam
 
@@ -1358,9 +1350,10 @@ class Decoder_s2s(nn.Module):
 # =============  Shallow-Layer ===============
 class FT_Scalar_1(nn.Module):
     """ Shallow-Layer """
+
     def __init__(self, iS, hS, lS, dr, n_cond_ops, n_agg_ops, old=False):
         super(FT_Scalar_1, self).__init__()
-        self.iS = iS # input_size
+        self.iS = iS  # input_size
         self.hS = hS
         self.ls = lS
         self.dr = dr
@@ -1368,7 +1361,6 @@ class FT_Scalar_1(nn.Module):
         self.n_cond_ops = n_cond_ops
         self.n_agg_ops = n_agg_ops
         self.n_where_num = 4
-
 
     def scp(self, wemb_h, l_hs):
         bS, max_header_len, _ = wemb_h.shape
@@ -1391,7 +1383,7 @@ class FT_Scalar_1(nn.Module):
         # select of aggregation operator
         s_sa = torch.zeros([bS, self.n_agg_ops]).to(device)
         for b, pr_sc1 in enumerate(pr_sc):
-            s_sa[b,:] = wemb_h[b,pr_sc1,idx_st:idx_ed]
+            s_sa[b, :] = wemb_h[b, pr_sc1, idx_st:idx_ed]
 
         return s_sa
 
@@ -1483,8 +1475,8 @@ class FT_Scalar_1(nn.Module):
             pr_wn = pred_wn(s_wn)
 
         # wc
-        idx_st = idx_ed+1
-        idx_ed = idx_st+1
+        idx_st = idx_ed + 1
+        idx_ed = idx_st + 1
         s_wc = self.wcp(wemb_h, l_hs, idx_st, idx_ed)
 
         if g_wc:
@@ -1493,7 +1485,7 @@ class FT_Scalar_1(nn.Module):
             pr_wc = pred_wc(pr_wn, s_wc)
 
         # wo
-        idx_st = idx_ed+1
+        idx_st = idx_ed + 1
         idx_ed = idx_st + self.n_cond_ops
 
         s_wo = self.wop(wemb_h, pr_wc, idx_st, idx_ed)
@@ -1510,7 +1502,6 @@ class FT_Scalar_1(nn.Module):
         # print(s_wv)
         # s_wv = F.tanh(s_wv)
         return s_sc, s_sa, s_wn, s_wc, s_wo, s_wv
-
 
     def forward_EG(self, wemb_n, l_n, wemb_h, l_hs, cls_vec, engine, tb,
                    nlu_t, nlu_tt, tt_to_t_idx, nlu,
@@ -1536,7 +1527,6 @@ class FT_Scalar_1(nn.Module):
         return pr_sc_best, pr_sa_best, pr_wn_based_on_prob, pr_wvi_best, \
                pr_sql_i, p_tot, p_select, p_where, p_sc_best, p_sa_best, \
                p_wn_best, p_wc_best, p_wo_best, p_wvi_best
-
 
     def EG_decoding_select(self, wemb_h, l_hs, tb,
                            beam_size=4, show_p_sc=False, show_p_sa=False):
@@ -1624,9 +1614,9 @@ class FT_Scalar_1(nn.Module):
         return prob_sca, pr_sc_best, pr_sa_best, p_sc_best, p_sa_best, p_select
 
     def EG_decoding_where(self, wemb_n, l_n, wemb_h, l_hs, cls_vec, engine, tb,
-                     nlu_t, nlu_wp_t, tt_to_t_idx, nlu,
+                          nlu_t, nlu_wp_t, tt_to_t_idx, nlu,
                           pr_sc_best, pr_sa_best,
-                     beam_size=4, show_p_wn=False, show_p_wc=False, show_p_wo=False, show_p_wv=False):
+                          beam_size=4, show_p_wn=False, show_p_wc=False, show_p_wo=False, show_p_wv=False):
 
         bS, max_header_len, _ = wemb_h.shape
 
@@ -1674,7 +1664,8 @@ class FT_Scalar_1(nn.Module):
             prob_wv = F.softmax(s_wv, dim=-2).detach().to('cpu').numpy()
 
             # prob_wv
-            pr_wvi_beam, prob_wvi_beam, prob_wvi_beam_st, prob_wvi_beam_ed = pred_wvi_se_beam(self.n_where_num, s_wv, beam_size)
+            pr_wvi_beam, prob_wvi_beam, prob_wvi_beam_st, prob_wvi_beam_ed = pred_wvi_se_beam(self.n_where_num, s_wv,
+                                                                                              beam_size)
             pr_wvi_beam_op_list.append(pr_wvi_beam)
 
             prob_wvi_beam_op_list.append(prob_wvi_beam)
@@ -1712,7 +1703,6 @@ class FT_Scalar_1(nn.Module):
                         prob_wvi_st_dupl[b, i_wn, i_op, i_wv_beam] = p_wv_st
                         prob_wvi_ed_dupl[b, i_wn, i_op, i_wv_beam] = p_wv_ed
 
-
         # Perform execution guided decoding
         conds_max = []
         prob_conds_max = []
@@ -1748,12 +1738,11 @@ class FT_Scalar_1(nn.Module):
                 merged_wv11 = merge_wv_t1_eng(temp_pr_wv_str[0][0], nlu[b])
                 conds11 = [i_wc, i_op, merged_wv11]
 
-
                 prob_conds11 = prob_w[b, idxs11[0], idxs11[1], idxs11[2]]
                 p_wc11_max = prob_wc_dupl[b, idxs11[0], idxs11[1], idxs11[2]]
                 p_wo11_max = prob_wo_dupl[b, idxs11[0], idxs11[1], idxs11[2]]
-                p_wvi11_max = [ prob_wvi_st_dupl[b, idxs11[0], idxs11[1], idxs11[2]],
-                                prob_wvi_ed_dupl[b, idxs11[0], idxs11[1], idxs11[2]] ]
+                p_wvi11_max = [prob_wvi_st_dupl[b, idxs11[0], idxs11[1], idxs11[2]],
+                               prob_wvi_ed_dupl[b, idxs11[0], idxs11[1], idxs11[2]]]
 
                 # test execution
                 # print(nlu[b])
@@ -1769,7 +1758,6 @@ class FT_Scalar_1(nn.Module):
                     p_wo1_max.append(p_wo11_max)
                     p_wvi1_max.append(p_wvi11_max)
 
-
             conds_max.append(conds_max1)
             prob_conds_max.append(prob_conds_max1)
             pr_wvi_max.append(pr_wvi1_max)
@@ -1783,7 +1771,7 @@ class FT_Scalar_1(nn.Module):
 
         # Calculate total probability to decide the number of where-clauses
         pr_sql_i = []
-        prob_wn_w = [] # total where-clause probability
+        prob_wn_w = []  # total where-clause probability
         pr_wn_based_on_prob = []
         pr_wvi_best = []
 
@@ -1804,16 +1792,12 @@ class FT_Scalar_1(nn.Module):
             pr_sql_i1 = {'agg': pr_sa_best[b], 'sel': pr_sc_best[b], 'conds': conds_max[b][:pr_wn_based_on_prob[b]]}
             pr_wvi_best1 = pr_wvi_max[b][:pr_wn_based_on_prob[b]]
 
-
             pr_sql_i.append(pr_sql_i1)
             pr_wvi_best.append(pr_wvi_best1)
 
-            p_wc.append( p_wc_max[b][:pr_wn_based_on_prob[b]] )
-            p_wo.append( p_wo_max[b][:pr_wn_based_on_prob[b]] )
-            p_wvi.append( p_wvi_max[b][:pr_wn_based_on_prob[b]] )
-
-
-
+            p_wc.append(p_wc_max[b][:pr_wn_based_on_prob[b]])
+            p_wo.append(p_wo_max[b][:pr_wn_based_on_prob[b]])
+            p_wvi.append(p_wvi_max[b][:pr_wn_based_on_prob[b]])
 
         # s_wv = [B, n_where_num, max_nlu_tokens, 2]
 

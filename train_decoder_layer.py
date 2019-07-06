@@ -44,7 +44,7 @@ def construct_hyper_param(parser):
                         default='vocab.txt', type=str,
                         help="The vocabulary file that the BERT model was trained on.")
     parser.add_argument("--max_seq_length",
-                        default=270, type=int, # Set based on maximum length of input tokens.
+                        default=270, type=int,  # Set based on maximum length of input tokens.
                         help="The maximum total input sequence length after WordPiece tokenization. Sequences "
                              "longer than this will be truncated, and sequences shorter than this will be padded.")
     parser.add_argument("--num_target_layers",
@@ -66,7 +66,6 @@ def construct_hyper_param(parser):
     parser.add_argument('--dr', default=0.3, type=float, help="Dropout rate.")
     parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate.")
     parser.add_argument("--hS", default=100, type=int, help="The dimension of hidden vector in the seq-to-SQL module.")
-
 
     # 1.4 Execution-guided decoding beam-size. It is used only in test.py
     parser.add_argument('--EG',
@@ -112,21 +111,20 @@ def construct_hyper_param(parser):
 
     sql_vocab_list = [
         (
-        "none", "max", "min", "count", "sum", "average",
-        "select", "where", "and",
-        "equal", "greater than", "less than",
-        "start", "end"
+            "none", "max", "min", "count", "sum", "average",
+            "select", "where", "and",
+            "equal", "greater than", "less than",
+            "start", "end"
         ),
 
         (
-        "sql none", "sql max", "sql min", "sql count", "sql sum", "sql average",
-        "sql select", "sql where", "sql and",
-        "sql equal", "sql greater than", "sql less than",
-        "sql start", "sql end"
+            "sql none", "sql max", "sql min", "sql count", "sql sum", "sql average",
+            "sql select", "sql where", "sql and",
+            "sql equal", "sql greater than", "sql less than",
+            "sql start", "sql end"
         )
     ]
     args.sql_vocab = sql_vocab_list[args.sql_vocab_type]
-
 
     #
     # Decide whether to use lower_case.
@@ -151,19 +149,13 @@ def construct_hyper_param(parser):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-
-
     return args
 
 
 def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
-
-
     bert_config_file = os.path.join(BERT_PT_PATH, f'bert_config_{bert_type}.json')
     vocab_file = os.path.join(BERT_PT_PATH, f'vocab_{bert_type}.txt')
     init_checkpoint = os.path.join(BERT_PT_PATH, f'pytorch_model_{bert_type}.bin')
-
-
 
     bert_config = BertConfig.from_json_file(bert_config_file)
     tokenizer = tokenization.FullTokenizer(
@@ -179,6 +171,7 @@ def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
     model_bert.to(device)
 
     return model_bert, tokenizer, bert_config
+
 
 def get_opt(model, model_bert, model_type):
     # if model_type == 'FT_Scalar_1':
@@ -204,6 +197,7 @@ def get_opt(model, model_bert, model_type):
         #                             lr=args.lr_bert, weight_decay=0)
 
     return opt, opt_bert
+
 
 def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_model=None):
     # some constants
@@ -252,6 +246,7 @@ def get_models(args, BERT_PT_PATH, trained=False, path_model_bert=None, path_mod
 
     return model, model_bert, tokenizer, bert_config
 
+
 def get_data(path_wikisql, args):
     train_data, train_table, dev_data, dev_table, _, _ = load_wikisql(path_wikisql, args.toy_model, args.toy_size,
                                                                       no_w2i=True, no_hs_tok=True,
@@ -261,14 +256,14 @@ def get_data(path_wikisql, args):
     return train_data, train_table, dev_data, dev_table, train_loader, dev_loader
 
 
-def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab,
+def train(train_loader, train_table, model, model_bert, opt, tokenizer, sql_vocab,
           max_seq_length, accumulate_gradients=1, check_grad=False,
           st_pos=0, opt_bert=None, path_db=None, dset_name='train', col_pool_type='start_tok', aug=False):
     model.train()
     model_bert.train()
 
     ave_loss = 0
-    cnt = 0 # count the # of examples
+    cnt = 0  # count the # of examples
     cnt_x = 0
     cnt_lx = 0  # of logical form acc
 
@@ -286,7 +281,6 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
         # get ground truth where-value index under CoreNLP tokenization scheme. It's done already on trainset.
         g_wvi_corenlp = get_g_wvi_corenlp(t)
 
-
         # g_wvi_corenlp = get_g_wvi_corenlp(t)
         all_encoder_layer, pooled_output, tokens, i_nlu, i_hds, i_sql_vocab, \
         l_n, l_hpu, l_hs, l_input, \
@@ -303,7 +297,6 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
             # e.g. train: 32.
             continue
 
-
         # Generate g_pnt_idx
         g_pnt_idxs = gen_g_pnt_idx(g_wvi, sql_i, i_hds, i_sql_vocab, col_pool_type=col_pool_type)
         pnt_start_tok = i_sql_vocab[0][-2][0]
@@ -317,12 +310,11 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
 
         score = model(wenc_s2s, l_input, cls_vec, pnt_start_tok, g_pnt_idxs=g_pnt_idxs)
 
-
         # Calculate loss & step
         loss = Loss_s2s(score, g_pnt_idxs)
 
         # Calculate gradient
-        if iB % accumulate_gradients == 0: # mode
+        if iB % accumulate_gradients == 0:  # mode
             # at start, perform zero_grad
             opt.zero_grad()
             opt_bert.zero_grad()
@@ -330,7 +322,7 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
             if accumulate_gradients == 1:
                 opt.step()
                 opt_bert.step()
-        elif iB % accumulate_gradients == (accumulate_gradients-1):
+        elif iB % accumulate_gradients == (accumulate_gradients - 1):
             # at the final, take step with accumulated graident
             loss.backward()
             opt.step()
@@ -360,13 +352,14 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
 
         g_i_vg_list, g_i_vg_sub_list = gen_i_vg_from_pnt_idxs(g_pnt_idxs, i_sql_vocab, i_nlu, i_hds)
 
-        g_sql_q_s2s, g_sql_i = gen_sql_q_from_i_vg(tokens, nlu, nlu_t, hds, tt_to_t_idx, pnt_start_tok, pnt_end_tok, g_pnt_idxs, g_i_vg_list,
-                            g_i_vg_sub_list)
+        g_sql_q_s2s, g_sql_i = gen_sql_q_from_i_vg(tokens, nlu, nlu_t, hds, tt_to_t_idx, pnt_start_tok, pnt_end_tok,
+                                                   g_pnt_idxs, g_i_vg_list,
+                                                   g_i_vg_sub_list)
 
         pr_i_vg_list, pr_i_vg_sub_list = gen_i_vg_from_pnt_idxs(pr_pnt_idxs, i_sql_vocab, i_nlu, i_hds)
 
         pr_sql_q_s2s, pr_sql_i = gen_sql_q_from_i_vg(tokens, nlu, nlu_t, hds, tt_to_t_idx, pnt_start_tok, pnt_end_tok,
-                                       pr_pnt_idxs, pr_i_vg_list, pr_i_vg_sub_list)
+                                                     pr_pnt_idxs, pr_i_vg_list, pr_i_vg_sub_list)
 
         g_sql_q = generate_sql_q(sql_i, tb)
 
@@ -384,7 +377,6 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
             pr_sc = ['NA'] * bS
             pr_sa = ['NA'] * bS
 
-
         # Cacluate accuracy
         cnt_lx1_list = get_cnt_lx_list_s2s(g_pnt_idxs, pr_pnt_idxs)
 
@@ -394,7 +386,6 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
             cnt_x1_list = [0] * len(t)
             g_ans = ['N/A (data augmented'] * len(t)
             pr_ans = ['N/A (data augmented'] * len(t)
-
 
         # statistics
         ave_loss += loss.item()
@@ -411,6 +402,7 @@ def train(train_loader, train_table, model, model_bert, opt, tokenizer,sql_vocab
     aux_out = [grad_abs_mean_mean, grad_abs_mean_sig, grad_abs_sig_mean]
 
     return acc, aux_out
+
 
 def report_detail(hds, nlu,
                   g_sc, g_sa, g_wn, g_wc, g_wo, g_wv, g_wv_str, g_sql_q, g_ans,
@@ -452,23 +444,24 @@ def report_detail(hds, nlu,
 
     print(cnt_list)
 
-    print(f'acc_lx = {cnt_lx/cnt:.3f}, acc_x = {cnt_x/cnt:.3f}\n',
-          f'acc_sc = {cnt_sc/cnt:.3f}, acc_sa = {cnt_sa/cnt:.3f}, acc_wn = {cnt_wn/cnt:.3f}\n',
-          f'acc_wc = {cnt_wc/cnt:.3f}, acc_wo = {cnt_wo/cnt:.3f}, acc_wv = {cnt_wv/cnt:.3f}')
+    print(f'acc_lx = {cnt_lx / cnt:.3f}, acc_x = {cnt_x / cnt:.3f}\n',
+          f'acc_sc = {cnt_sc / cnt:.3f}, acc_sa = {cnt_sa / cnt:.3f}, acc_wn = {cnt_wn / cnt:.3f}\n',
+          f'acc_wc = {cnt_wc / cnt:.3f}, acc_wo = {cnt_wo / cnt:.3f}, acc_wv = {cnt_wv / cnt:.3f}')
     print(f'===============================')
+
 
 def test(data_loader, data_table, model, model_bert, tokenizer, sql_vocab,
          max_seq_length,
          detail=False, st_pos=0, cnt_tot=1, EG=False, beam_only=True, beam_size=4,
          path_db=None, dset_name='test', col_pool_type='start_tok', aug=False,
-        ):
+         ):
     model.eval()
     model_bert.eval()
 
     ave_loss = 0
     cnt = 0
     cnt_lx = 0
-    cnt_x  = 0
+    cnt_x = 0
     results = []
     cnt_list = []
 
@@ -516,7 +509,7 @@ def test(data_loader, data_table, model, model_bert, tokenizer, sql_vocab,
         cls_vec = pooled_output
 
         if not EG:
-            score = model(wenc_s2s, l_input, cls_vec, pnt_start_tok,)
+            score = model(wenc_s2s, l_input, cls_vec, pnt_start_tok, )
             loss = Loss_s2s(score, g_pnt_idxs)
 
             pr_pnt_idxs = pred_pnt_idxs(score, pnt_start_tok, pnt_end_tok)
@@ -533,7 +526,6 @@ def test(data_loader, data_table, model, model_bert, tokenizer, sql_vocab,
             else:
                 # print('EG on!')
                 loss = torch.tensor([1])
-
 
         g_i_vg_list, g_i_vg_sub_list = gen_i_vg_from_pnt_idxs(g_pnt_idxs, i_sql_vocab, i_nlu, i_hds)
         g_sql_q_s2s, g_sql_i = gen_sql_q_from_i_vg(tokens, nlu, nlu_t, hds, tt_to_t_idx, pnt_start_tok, pnt_end_tok,
@@ -590,7 +582,6 @@ def test(data_loader, data_table, model, model_bert, tokenizer, sql_vocab,
             print(f"Ground T  :   {g_sql_q}")
             print(f"Prediction:   {pr_sql_q}")
 
-
     ave_loss /= cnt
 
     acc_lx = cnt_lx / cnt
@@ -607,6 +598,7 @@ def print_result(epoch, acc, dname):
     print(
         f" Epoch: {epoch}, ave loss: {ave_loss}, acc_lx: {acc_lx:.3f}, acc_x: {acc_x:.3f}"
     )
+
 
 if __name__ == '__main__':
 
@@ -626,7 +618,6 @@ if __name__ == '__main__':
 
     ## 4. Build & Load models
     model, model_bert, tokenizer, bert_config = get_models(args, BERT_PT_PATH)
-
 
     ## 5. Get optimizers
     opt, opt_bert = get_opt(model, model_bert, args.model_type)
@@ -655,19 +646,18 @@ if __name__ == '__main__':
         # check DEV
         with torch.no_grad():
             acc_dev, results_dev = test(dev_loader,
-                        dev_table,
-                        model,
-                        model_bert,
-                        tokenizer,
-                        args.sql_vocab,
-                        args.max_seq_length,
-                        detail=False,
-                        path_db=path_wikisql,
-                        st_pos=0,
-                        dset_name='dev', EG=args.EG,
-                        col_pool_type=args.col_pool_type,
-                        aug=args.aug)
-
+                                        dev_table,
+                                        model,
+                                        model_bert,
+                                        tokenizer,
+                                        args.sql_vocab,
+                                        args.max_seq_length,
+                                        detail=False,
+                                        path_db=path_wikisql,
+                                        st_pos=0,
+                                        dset_name='dev', EG=args.EG,
+                                        col_pool_type=args.col_pool_type,
+                                        aug=args.aug)
 
         print_result(epoch, acc_train, 'train')
         print_result(epoch, acc_dev, 'dev')

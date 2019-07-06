@@ -23,7 +23,6 @@ def ensure_dir(my_path):
 
 
 def topk_multi_dim(tensor, n_topk=1, batch_exist=True):
-
     if batch_exist:
         idxs = []
         for b, tensor1 in enumerate(tensor):
