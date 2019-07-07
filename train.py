@@ -20,13 +20,13 @@ from bert.modeling import BertConfig, BertModel
 from sqlova.utils.utils_wikisql import *
 from sqlova.model.nl2sql.wikisql_models import *
 from sqlnet.dbengine import DBEngine
-
+from tqdm import tqdm
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def construct_hyper_param(parser):
     parser.add_argument('--tepoch', default=200, type=int)
-    parser.add_argument("--bS", default=32, type=int,
+    parser.add_argument("--bS", default=16, type=int,
                         help="Batch size")
     parser.add_argument("--accumulate_gradients", default=1, type=int,
                         help="The number of accumulation of backpropagation to effectivly increase the batch size.")
@@ -76,7 +76,8 @@ def construct_hyper_param(parser):
 
     args = parser.parse_args()
 
-    map_bert_type_abb = {'uS': 'uncased_L-12_H-768_A-12',
+    map_bert_type_abb = {'uS': 'uncased',
+                        #  'uS': 'uncased_L-12_H-768_A-12',
                          'uL': 'uncased_L-24_H-1024_A-16',
                          'cS': 'cased_L-12_H-768_A-12',
                          'cL': 'cased_L-24_H-1024_A-16',
@@ -116,7 +117,6 @@ def get_bert(BERT_PT_PATH, bert_type, do_lower_case, no_pretraining):
     bert_config.print_status()
 
     model_bert = BertModel(bert_config)
-    ipdb.set_trace()
     if no_pretraining:
         pass
     else:
@@ -219,7 +219,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
     # Engine for SQL querying.
     engine = DBEngine(os.path.join(path_db, f"{dset_name}.db"))
 
-    for iB, t in enumerate(train_loader):
+    for iB, t in enumerate(tqdm(train_loader, ncols = 60, desc = 'Training:')):
         cnt += len(t)
 
         if cnt < st_pos:
@@ -565,7 +565,6 @@ if __name__ == '__main__':
     path_save_for_evaluation = path_h / 'result'
 
     ## 3. Load data
-    ipdb.set_trace()
     train_data, train_table, dev_data, dev_table, train_loader, dev_loader = get_data(path_wikisql, args)
     # test_data, test_table = load_wikisql_data(path_wikisql, mode='test', toy_model=args.toy_model, toy_size=args.toy_size, no_hs_tok=True)
     # test_loader = torch.utils.data.DataLoader(
@@ -606,7 +605,7 @@ if __name__ == '__main__':
                                          st_pos=0,
                                          path_db=path_wikisql,
                                          dset_name='train')
-
+        
         # check DEV
         with torch.no_grad():
             acc_dev, results_dev, cnt_list = test(dev_loader,

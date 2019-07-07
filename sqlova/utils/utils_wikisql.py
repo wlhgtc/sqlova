@@ -93,7 +93,7 @@ def get_loader_wikisql(data_train, data_dev, bS, shuffle_train=True, shuffle_dev
         batch_size=bS,
         dataset=data_train,
         shuffle=shuffle_train,
-        num_workers=4,
+        # num_workers=4,
         collate_fn=lambda x: x  # now dictionary values are not merged!
     )
 
@@ -101,7 +101,7 @@ def get_loader_wikisql(data_train, data_dev, bS, shuffle_train=True, shuffle_dev
         batch_size=bS,
         dataset=data_dev,
         shuffle=shuffle_dev,
-        num_workers=4,
+        # num_workers=4,
         collate_fn=lambda x: x  # now dictionary values are not merged!
     )
 
