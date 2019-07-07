@@ -225,6 +225,7 @@ def train(train_loader, train_table, model, model_bert, opt, bert_config, tokeni
         if cnt < st_pos:
             continue
         # Get fields
+        ipdb.set_trace()
         nlu, nlu_t, sql_i, sql_q, sql_t, tb, hs_t, hds = get_fields(t, train_table, no_hs_t=True, no_sql_t=True)
         # nlu  : natural language utterance
         # nlu_t: tokenized nlu
@@ -389,7 +390,7 @@ def report_detail(hds, nlu,
     print(f'===============================')
 
 
-def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
+def test(test_loader, test_table, model, model_bert, bert_config, tokenizer,
          max_seq_length,
          num_target_layers, detail=False, st_pos=0, cnt_tot=1, EG=False, beam_size=4,
          path_db=None, dset_name='test'):
@@ -412,13 +413,13 @@ def test(data_loader, data_table, model, model_bert, bert_config, tokenizer,
 
     engine = DBEngine(os.path.join(path_db, f"{dset_name}.db"))
     results = []
-    for iB, t in enumerate(data_loader):
+    for iB, t in enumerate(tqdm(test_loader, ncols = 60, desc = 'Testing:')):
 
         cnt += len(t)
         if cnt < st_pos:
             continue
         # Get fields
-        nlu, nlu_t, sql_i, sql_q, sql_t, tb, hs_t, hds = get_fields(t, data_table, no_hs_t=True, no_sql_t=True)
+        nlu, nlu_t, sql_i, sql_q, sql_t, tb, hs_t, hds = get_fields(t, test_table, no_hs_t=True, no_sql_t=True)
 
         g_sc, g_sa, g_wn, g_wc, g_wo, g_wv = get_g(sql_i)
         g_wvi_corenlp = get_g_wvi_corenlp(t)

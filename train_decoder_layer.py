@@ -22,7 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def construct_hyper_param(parser):
     parser.add_argument('--tepoch', default=200, type=int)
-    parser.add_argument("--bS", default=4, type=int,
+    parser.add_argument("--bS", default=16, type=int,
                         help="Batch size")
     parser.add_argument("--accumulate_gradients", default=8, type=int,
                         help="The number of accumulation of backpropagation to effectivly increase the batch size.")
